@@ -28,7 +28,6 @@ label {
     font-size: 13px;
     margin-bottom: 6px;
     margin-top: 5px;
-    display: block;
 }
 .image_preview_container {
     margin-top: 10pt;
@@ -430,6 +429,16 @@ img {
 .secondaryButton:hover {
     background: rgb(177, 27, 0);
 }
+.useSettings {
+    background: var(--accent-color);
+    border: var(--make-image-border);
+    color: rgb(255, 221, 255);
+    margin-right: 6pt;
+    float: right;
+}
+.useSettings:hover {
+    background: hsl(var(--accent-hue), 100%, calc(var(--accent-lightness) + 6%));
+}
 .stopTask {
     float: right;
 }
@@ -648,9 +657,9 @@ input::file-selector-button {
 }
 
 @media (min-width: 700px) {
-    /* #editor {
+    #editor {
         max-width: 480px;
-    } */
+    }
     .float-container {
         padding: 20px;
     }
