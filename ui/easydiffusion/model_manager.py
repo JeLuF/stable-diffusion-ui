@@ -5,8 +5,9 @@ from easydiffusion.types import TaskData
 from easydiffusion.utils import log
 
 from sdkit import Context
-from sdkit.models import load_model, unload_model, get_model_info_from_db, scan_model
+from sdkit.models import load_model, unload_model, get_model_info_from_db, scan_model, download_model, resolve_downloaded_model_path, get_models_db
 from sdkit.utils import hash_file_quick
+
 
 KNOWN_MODEL_TYPES = ["stable-diffusion", "vae", "hypernetwork", "gfpgan", "realesrgan"]
 MODEL_EXTENSIONS = {
@@ -45,7 +46,6 @@ def load_default_models(context: Context):
         except Exception as e:
             log.error(f"[red]Error while loading {model_type} model: {context.model_paths[model_type]}[/red]")
             log.error(f"[red]Error: {e}[/red]")
-            log.error(f"[red]Consider removing the model from the model folder.[red]")
 
 
 def unload_all(context: Context):
@@ -251,3 +251,22 @@ def getModels():
         models["options"]["stable-diffusion"].append("custom-model")
 
     return models
+
+
+def download_known_model(model_type, model_id):
+    download_model(model_type, model_id, download_base_dir=app.MODELS_DIR)
+
+    model_path = resolve_downloaded_model_path(model_type=model_type, model_id=model_id, download_base_dir=app.MODELS_DIR)
+    quick_hash = hash_file_quick(model_path)
+    model_info = db[model_type][model_id]
+    expected_quick_hash = model_info["quick_hash"]
+    expected_size = int(requests.get(model_info["url"], stream=True).headers["content-length"])
+    actual_size = os.path.getsize(model_path)
+
+    if quick_hash != expected_quick_hash or actual_size != expected_size:
+        log.error( f"""ERROR! {model_type} {model_id}:
+  expected hash:\t{expected_quick_hash}
+  actual:\t\t{quick_hash}
+  expected size:\t{expected_size}
+  actual size:\t\t{actual_size}"""
+                )

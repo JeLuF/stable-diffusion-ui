@@ -1472,6 +1472,21 @@ function resumeClient() {
     })
 }
 
+async function getModelDB() {
+    try {
+        const res = await fetch('/model/db')
+        if (!res.ok) {
+            console.error('Invalid response fetching models', res.statusText)
+            return {}
+        }
+        let db = await res.json()
+        console.log('get models response', db)
+        return db
+    } catch (e) {
+        console.log('get models error', e)
+    }
+}
+
 promptField.addEventListener("input", debounce( renameMakeImageButton, 1000) )
 
 

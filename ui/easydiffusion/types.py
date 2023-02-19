@@ -51,6 +51,9 @@ class MergeRequest(BaseModel):
     out_path: str = "mix"
     use_fp16 = True
 
+class DownloadKnownModelRequest(BaseModel):
+    model_type: str = None
+    model_id: str = None
 
 class Image:
     data: str  # base64

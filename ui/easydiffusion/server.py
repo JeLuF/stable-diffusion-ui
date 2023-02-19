@@ -13,7 +13,7 @@ from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from easydiffusion import app, model_manager, task_manager
-from easydiffusion.types import TaskData, GenerateImageRequest, MergeRequest
+from easydiffusion.types import TaskData, GenerateImageRequest, MergeRequest, DownloadKnownModelRequest
 from easydiffusion.utils import log
 
 log.info(f"started in {app.SD_DIR}")
@@ -72,6 +72,16 @@ def init():
     def model_merge(req: dict):
         print(req)
         return model_merge_internal(req)
+
+    @server_api.get("/model/db")
+    def get_model_db():
+        from sdkit.models import get_models_db
+        return get_models_db()
+
+    @server_api.post("/model/download_known")
+    def model_merge(req: DownloadKnownModelRequest):
+        print(req)
+        return model_manager.download_known_model(req.model_type, req.model_id)
 
     @server_api.get("/image/stream/{task_id:int}")
     def stream(task_id: int):
