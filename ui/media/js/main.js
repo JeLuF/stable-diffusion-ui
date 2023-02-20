@@ -65,6 +65,10 @@ let saveAllImagesBtn = document.querySelector("#save-all-images")
 
 let maskSetting = document.querySelector('#enable_mask')
 
+let addModel = document.querySelector('#add-model')
+let addModelsPopup = document.querySelector('#add-models-popup')
+let addModelsButton = document.querySelector('#add-sd-button')
+
 const processOrder = document.querySelector('#process_order_toggle')
 
 let imagePreview = document.querySelector("#preview")
@@ -1486,6 +1490,30 @@ async function getModelDB() {
         console.log('get models error', e)
     }
 }
+
+addModel.addEventListener("click", async function() {
+    const db = await getModelDB()
+    addModelsPopup.querySelector('#add-sd-select').innerHTML = Object.keys(db["stable-diffusion"]).sort().filter( 
+           // models with a purpose don't work
+           k => !('model_purpose' in db["stable-diffusion"][k].metadata)
+        ).map( k => {
+            const m = db["stable-diffusion"][k]
+            return `<option value="${k}">${m.name}</option>`
+        }).join()
+    addModelsPopup.classList.add("active")
+})
+
+document.querySelector('#add-sd-button').addEventListener('click', async function(e) {
+    console.log(addModelsPopup.querySelector('#add-sd-select').value)
+    let res = await fetch('/model/download_known', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'model_type':'stable-diffusion', 'model_id':addModelsPopup.querySelector('#add-sd-select').value})
+    })     
+    console.log(await res.json())
+})
 
 promptField.addEventListener("input", debounce( renameMakeImageButton, 1000) )
 
