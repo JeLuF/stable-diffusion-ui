@@ -7,7 +7,7 @@ import traceback
 import datetime
 from typing import List, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
@@ -99,9 +99,41 @@ def init():
     def read_root():
         return FileResponse(os.path.join(app.SD_UI_DIR, "index.html"), headers=NOCACHE_HEADERS)
 
+    #---- Websockets ----
+    manager = ConnectionManager()
+
+    @server_api.websocket("/ws")
+    async def websocket_endpoint(websocket: WebSocket):
+        log.info("ws start")
+        await manager.connect(websocket)
+        while True:
+            data = await websocket.receive_text()
+            log.info(f"WS message: {data}")
+            await manager.send_personal_message(f"You wrote: {data}", websocket)
+            await manager.broadcast(f"Client says: {data}")
+
     @server_api.on_event("shutdown")
     def shutdown_event():  # Signal render thread to close on shutdown
         task_manager.current_state_error = SystemExit("Application shutting down.")
+
+# WebSocket Connection Manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
 
 
 # API implementations
