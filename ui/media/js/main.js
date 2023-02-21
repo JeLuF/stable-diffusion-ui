@@ -43,6 +43,7 @@ let hypernetworkModelField = new ModelDropdown(document.querySelector('#hypernet
 let hypernetworkStrengthSlider = document.querySelector('#hypernetwork_strength_slider')
 let hypernetworkStrengthField = document.querySelector('#hypernetwork_strength')
 let outputFormatField = document.querySelector('#output_format')
+let blockNSFWField = document.querySelector('#block_nsfw')
 let showOnlyFilteredImageField = document.querySelector("#show_only_filtered_image")
 let updateBranchLabel = document.querySelector("#updateBranchLabel")
 let streamImageProgressField = document.querySelector("#stream_image_progress")
@@ -971,6 +972,7 @@ function getCurrentUserRequest() {
             stream_progress_updates: true,
             stream_image_progress: (numOutputsTotal > 50 ? false : streamImageProgressField.checked),
             show_only_filtered_image: showOnlyFilteredImageField.checked,
+            block_nsfw: blockNSFWField.checked,
             output_format: outputFormatField.value,
             output_quality: parseInt(outputQualityField.value),
             metadata_output_format: metadataOutputFormatField.value,
@@ -1129,7 +1131,7 @@ function createFileName(prompt, seed, steps, guidance, outputFormat) {
     // fileName += `${tagString}`
 
     // add the file extension
-    fileName += '.' + (outputFormat === 'png' ? 'png' : 'jpeg')
+    fileName += '.' + outputFormat
 
     return fileName
 }
@@ -1165,16 +1167,15 @@ clearAllPreviewsBtn.addEventListener('click', (e) => { shiftOrConfirm(e, "Clear 
 })})
 
 saveAllImagesBtn.addEventListener('click', (e) => {
+    let i = 0
     document.querySelectorAll(".imageTaskContainer").forEach(container => {
         let req = htmlTaskMap.get(container)
         container.querySelectorAll(".imgContainer img").forEach(img => {
             if (img.closest('.imgItem').style.display === 'none') {
-                // console.log('skipping hidden image', img)
                 return
             }
-
-            onDownloadImageClick(req, img)
-            // console.log(req)
+            setTimeout(() => {onDownloadImageClick(req, img)}, i*200)
+            i = i+1
         })
     })
 })
@@ -1305,7 +1306,7 @@ function updateHypernetworkStrengthContainer() {
 hypernetworkModelField.addEventListener('change', updateHypernetworkStrengthContainer)
 updateHypernetworkStrengthContainer()
 
-/********************* JPEG Quality **********************/
+/********************* JPEG/WEBP Quality **********************/
 function updateOutputQuality() {
     outputQualityField.value =  0 | outputQualitySlider.value
     outputQualityField.dispatchEvent(new Event("change"))
@@ -1327,10 +1328,10 @@ outputQualityField.addEventListener('input', debounce(updateOutputQualitySlider,
 updateOutputQuality()
 
 outputFormatField.addEventListener('change', e => {
-    if (outputFormatField.value == 'jpeg') {
-        outputQualityRow.style.display='table-row'
-    } else {
+    if (outputFormatField.value === 'png') {
         outputQualityRow.style.display='none'
+    } else {
+        outputQualityRow.style.display='table-row'
     }
 })
 
