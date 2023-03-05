@@ -648,24 +648,13 @@ async function getModels() {
             makeImageBtn.disabled = true
         }
 
-        /* This code should no longer be needed. Commenting out for now, will cleanup later.
-        const sd_model_setting_key = "stable_diffusion_model"
-        const vae_model_setting_key = "vae_model"
-        const hypernetwork_model_key = "hypernetwork_model"
-
-        const stableDiffusionOptions = modelsOptions['stable-diffusion']
-        const vaeOptions = modelsOptions['vae']
-        const hypernetworkOptions = modelsOptions['hypernetwork']
-
-        // TODO: set default for model here too
-        SETTINGS[sd_model_setting_key].default = stableDiffusionOptions[0]
-        if (getSetting(sd_model_setting_key) == '' || SETTINGS[sd_model_setting_key].value == '') {
-            setSetting(sd_model_setting_key, stableDiffusionOptions[0])
+        console.log(modelsCache)
+        if (modelsCache["options"]["stable-diffusion"].length == 0) {
+            document.getElementById('no-models-popup').classList.add("active")
+        } else {
+            // notify ModelDropdown objects to refresh
+            document.dispatchEvent(new Event('refreshModels'))
         }
-        */
-
-        // notify ModelDropdown objects to refresh
-        document.dispatchEvent(new Event('refreshModels'))
     } catch (e) {
         console.log('get models error', e)
     }

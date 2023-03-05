@@ -12,9 +12,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from easydiffusion import app, model_manager, task_manager
+from easydiffusion import app, model_manager, task_manager, downloader
 from easydiffusion.types import TaskData, GenerateImageRequest, MergeRequest, DownloadKnownModelRequest
 from easydiffusion.utils import log
+
+import asyncio, json
 
 log.info(f"started in {app.SD_DIR}")
 log.info(f"started at {datetime.datetime.now():%x %X}")
@@ -100,41 +102,94 @@ def init():
         return FileResponse(os.path.join(app.SD_UI_DIR, "index.html"), headers=NOCACHE_HEADERS)
 
     #---- Websockets ----
-    manager = ConnectionManager()
+    connection_manager = ConnectionManager()
+
+    connection_manager.addHandler("ping", ws_ping)
+    connection_manager.addHandler("model_download", downloader.modelDownloadTask)
 
     @server_api.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
         log.info("ws start")
-        await manager.connect(websocket)
-        while True:
-            data = await websocket.receive_text()
-            log.info(f"WS message: {data}")
-            await manager.send_personal_message(f"You wrote: {data}", websocket)
-            await manager.broadcast(f"Client says: {data}")
+        await connection_manager.connect(websocket)
+        await connection_manager.loop(websocket)
 
     @server_api.on_event("shutdown")
     def shutdown_event():  # Signal render thread to close on shutdown
         task_manager.current_state_error = SystemExit("Application shutting down.")
 
+async def ws_ping(message, connection_manager):
+    for i in range(message["count"]):
+        log.info("wsping %i, channel %s" % (i, message["channel"]))
+        await connection_manager.send_to_channel(message["channel"], '{"type": "pong", "count": "%i"}'%(i))
+        await asyncio.sleep(2)
+
 # WebSocket Connection Manager
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
+        self.handlers = {}
+        self.channels = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        for channel in self.channels:
+            if websocket in self.channels[channel]:
+                self.channels[channel].remove(websocket)
+                if len(self.channels[channel]) == 0:
+                    self.channels.pop(channel)
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+        try:
+            log.info("Send message '%s'" % (message))
+            await websocket.send_text(message)
+        except:
+            self.disconnect(websocket)
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+    async def send_to_channel(self, channel_name: str, message: str):
+        log.info(f'sending to {channel_name}')
+        from pprint import pprint
+        pprint(self.channels)
+        pprint(message)
+        if channel_name in self.channels:
+            tasks = []
+            for socket in self.channels[channel_name]:
+                tasks.append(self.send_personal_message(message, socket))
+            await asyncio.gather(*tasks)
 
+    def addHandler(self, event_name, handler):
+        if event_name in self.handlers:
+            self.handlers[event_name].append(handler)
+        else:
+            self.handlers[event_name] = [handler]
+
+    async def processEvent(self, message, websocket):
+        event_name = message["type"]
+        if event_name == "subscribe":
+            channel_name = message["channel"]
+            if channel_name in self.channels:
+                self.channels[channel_name].append(websocket)
+            else:
+                self.channels[channel_name] = [websocket]
+        elif event_name in self.handlers:
+            for handler in self.handlers[event_name]:
+                asyncio.create_task(handler(message, self))
+
+    async def loop(self, websocket):
+        while True:
+            try:
+                message = await websocket.receive_text()
+            except:
+                self.disconnect(websocket)
+                return
+            message = json.loads(message)
+            log.info(f"WS request: {message}")
+            if 'type' in message:
+                await self.processEvent(message, websocket)
 
 # API implementations
 def set_app_config_internal(req: SetAppConfigRequest):

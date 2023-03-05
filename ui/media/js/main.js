@@ -71,6 +71,9 @@ let addModel = document.querySelector('#add-model')
 let addModelsPopup = document.querySelector('#add-models-popup')
 let addModelsButton = document.querySelector('#add-sd-button')
 
+let noModelsDownloadButton = document.querySelector('#no-models-download')
+let downloadTable = document.querySelector('#download-table')
+
 const processOrder = document.querySelector('#process_order_toggle')
 
 let imagePreview = document.querySelector("#preview")
@@ -1567,6 +1570,44 @@ window.addEventListener("beforeunload", function(e) {
         return true;
     }
 });
+
+noModelsDownloadButton.addEventListener("click", (e) => {
+    document.querySelectorAll('#no-models-list input').forEach((toggle) => {
+        if (toggle.checked) {
+            let url   = toggle.dataset.url
+            let label = toggle.dataset.label
+            console.log(url)
+            let div = document.createElement('div')
+            div.innerHTML = `
+                        <div class="dl-percent">0%</div>
+                        <div>
+                            <div class="dl-label">${label}</div>
+                            <div class="dl-bar" style="width:0%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div>
+                        </div>
+                        <div></div>`
+
+            div.dataset.downloadurl = url
+            downloadTable.appendChild(div)
+            connection_manager.sendJSON({
+               'type': 'model_download',
+               'channel': SD.sessionId,
+               'url': url,
+               'model_type': 'stable-diffusion'
+            })
+        }
+    })
+})
+
+connection_manager.addHandler('model_download_status', (data) => {
+    let div = downloadTable.querySelector(`[data-downloadurl="${data.url}"]`)
+    if (data.state == 'completed') {
+       div.remove()
+    } else {
+        let percentage = Math.floor( 100 * data.downloaded / data.total )
+        div.querySelector('.dl-percent').innerHTML= `${percentage}%`
+        div.querySelector('.dl-bar').style.width= `${percentage}%`
+    }
+})
 
 createCollapsibles()
 prettifyInputs(document);

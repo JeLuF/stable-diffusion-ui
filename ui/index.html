@@ -284,6 +284,25 @@
                 and selecting the desired modifiers.<br/><br/>
                 Click "Image Settings" for additional settings like seed, image size, number of images to generate etc.<br/><br/>Enjoy! :)
             </div>
+            <div id="download-info">
+                <h2>Download progress</h2>
+                <div class="parameters-table" id="download-table">
+                    <div>
+                        <div>25%</div>
+                        <div>
+                            <div>Stable Diffusion v1.4 (1.9GB)</div>
+                            <div style="width:25%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div></div>
+                        <div></div>
+                    </div>
+                    <div>
+                        <div>0%</div>
+                        <div>
+                            <div>Stable Diffusion v2.1-768 (4GB)</div>
+                            <div style="width:0%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div></div>
+                        <div></div>
+                    </div>
+                </div> 
+            </div>
 
             <div id="preview-content">
                 <div id="preview-tools">
@@ -409,6 +428,45 @@
         </div>
     </div>
 
+    <div id="no-models-popup" class="popup">
+        <div style="background: var(--background-color3);">
+            <i class="close-button fa-solid fa-xmark"></i>
+            <h1>Welcome To Easy Diffusion</h1>
+            <p>Stable Diffusion uses "models" to generate images. There are various different models available. To start,
+            choose the base models to download. If unsure, use the default settings. You can add more models later on.</p>
+            <div class="parameters-table" id="no-models-list">
+                <div>
+                    <div>1.4</div>
+                    <div><label for="bm1">Stable Diffusion 1.4 (2GB)</label><small>The original base model.</small></div>
+                    <div><div class="input-toggle"><input data-label="Stable Diffusion 1.4" data-url="https://github.com/JeLuF/stable-diffusion-ui/releases/download/blabla/sd-v1-4.fp16.safetensors" id="bm1" name="bm1" type="checkbox"><label for="bm1"></label></div></div>
+                </div>
+                <div>
+                    <div>1.5</div>
+                    <div><label for="bm2">Stable Diffusion 1.5 (2GB)</label><small>An updated version of SD 1.4 with slight improvements.</small></div>
+                    <div><div class="input-toggle"><input data-label="Stable Diffusion 1.5" data-url="https://github.com/JeLuF/stable-diffusion-ui/releases/download/blabla/v1-5-pruned-emaonly.fp16.safetensors" id="bm2" name="bm2" type="checkbox" checked=""><label for="bm2"></label></div></div>
+                </div>
+                <div>
+                    <div>2.1</div>
+                    <div><label for="bm3">Stable Diffusion 2.1 (5GB)</label><small>SD 2.1 was trained on a dataset of images with a resolution of
+                        512×512 with NSFW images removed.</small></div>
+                    <div><div class="input-toggle"><input data-label="Stable Diffusion 2.1" data-url="https://huggingface.co/stabilityai/stable-diffusion-2-1-base/resolve/main/v2-1_512-ema-pruned.safetensors" id="bm3" name="bm3" type="checkbox"><label for="bm3"></label></div></div>
+                </div>
+                <div>
+                    <div>2.1 768</div>
+                    <div><label for="bm4">Stable Diffusion 2.1-768</label><small>SD 2.1-768 was trained on a dataset of images with a resolution of
+                        768×768 with NSFW images removed. (6GB of GPU Video RAM recommended)</small></div>
+                    <div><div class="input-toggle"><input data-label="Stable Diffusion 2.1-768" data-url="https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.safetensors" id="bm4" name="bm4" type="checkbox"><label for="bm4"></label></div></div>
+                </div>
+            </div>
+            <div style="margin-top: 1em;">
+               <button id="no-models-download" class="primaryButton">Download model(s)</button>
+            </div>
+            <p>Instead of the base models you can also use other models in <tt>ckpt</tt> or <tt>safetensors</tt> format. Place them
+            into the models/stable-diffusion folder in the installation directory.</p>
+            <button id="no-models-refresh" class="primaryButton">Refresh model list</button>
+        </div>
+    </div>
+
     <div id="image-editor" class="popup image-editor-popup">
         <div>
             <i class="close-button fa-solid fa-xmark"></i>
@@ -463,6 +521,7 @@
 <script src="media/js/auto-save.js"></script>
 
 <script src="media/js/searchable-models.js"></script>
+<script src="media/js/websocket.js"></script>
 <script src="media/js/main.js"></script>
 <script src="media/js/themes.js"></script>
 <script src="media/js/dnd.js"></script>
