@@ -11,12 +11,11 @@ class ConnectionManager {
         this.sleep = ms => new Promise(r => setTimeout(r, ms));
     }
 
-
     connect() {
         this.socket = new WebSocket(this.url)
         console.log(this.socket)
         this.socket.addEventListener('open', this.bind((event) => {
-            this.subscriptions.forEach( (s) => { this.subscribe(s) })
+            this.subscriptions.forEach( (s) => { this.raw_subscribe(s) })
             while (this.queue.length > 0) {
                 this.sendJSON(this.queue.shift())
             }
@@ -31,11 +30,8 @@ class ConnectionManager {
             }
         }, this))
         this.socket.addEventListener('error', this.bind(async function(error) {
-            console.error("Websocket ERROR error", err.message)
+            console.error("Websocket ERROR event", err.message)
             this.socket.close()
-            // console.error(this.socket)
-            // await this.sleep(2000)
-            // this.connect()
         }, this))
         this.socket.addEventListener('close', this.bind(async function(event)  {
             console.warn("Websocket CLOSE event")
@@ -58,9 +54,13 @@ class ConnectionManager {
 
     subscribe(channel_name) {
         if (! this.subscriptions.includes(channel_name)) {
-            this.sendJSON({"type":"subscribe", "channel":channel_name})
+            this.raw_subscribe(channel_name)
             this.subscriptions.push(channel_name)
         }
+    }
+
+    raw_subscribe(channel_name) {
+        this.sendJSON({"type":"subscribe", "channel":channel_name})
     }
 
     addHandler(type, fn) {
