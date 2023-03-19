@@ -110,8 +110,9 @@ class ModelDropdown
     
     processClick(e) {
         e.preventDefault()
-        if (e.srcElement.classList.contains('model-file')) {
-            this.saveCurrentSelection(e.srcElement, e.srcElement.innerText, e.srcElement.dataset.path)
+        if (e.srcElement.classList.contains('model-file') || e.srcElement.classList.contains('fa-file')) {
+            const elem = e.srcElement.classList.contains('model-file') ? e.srcElement : e.srcElement.parentElement
+            this.saveCurrentSelection(elem, elem.innerText, elem.dataset.path)
             this.hideModelList()
             this.modelFilter.focus()
             this.modelFilter.select()
@@ -476,10 +477,11 @@ class ModelDropdown
 
     createDropdown() {
         // create dropdown entries
-        this.modelFilter.insertAdjacentElement('afterend', this.createRootModelList(this.inputModels))
+        let rootModelList = this.createRootModelList(this.inputModels)
+        this.modelFilter.insertAdjacentElement('afterend', rootModelList)
         this.modelFilter.insertAdjacentElement(
             'afterend',
-            this.createElement(
+            createElement(
                 'i',
                 { id: `${this.modelFilter.id}-model-filter-arrow` },
                 ['model-selector-arrow', 'fa-solid', 'fa-angle-down'],
@@ -507,35 +509,13 @@ class ModelDropdown
         this.modelList.addEventListener('mousemove', this.bind(this.highlightModelAtPosition, this))
         this.modelList.addEventListener('mousedown', this.bind(this.processClick, this))
 
-        this.selectEntry(this.activeModel)
-    }
+        let mf = this.modelFilter
+        this.modelFilter.addEventListener('focus', function() {
+            let modelFilterStyle = window.getComputedStyle(mf)
+            rootModelList.style.minWidth = modelFilterStyle.width
+        })
 
-    /**
-     * 
-     * @param {string} tag 
-     * @param {object} attributes
-     * @param {Array<string>} classes
-     * @returns {HTMLElement}
-     */
-    createElement(tagName, attributes, classes, text, icon) {
-        const element = document.createElement(tagName)
-        if (attributes) {
-            Object.entries(attributes).forEach(([key, value]) => {
-                element.setAttribute(key, value)
-            })
-        }
-        if (classes) {
-            classes.forEach(className => element.classList.add(className))
-        }
-        if (icon) {
-            let iconEl = document.createElement('i')
-            iconEl.className = icon + ' icon'
-            element.appendChild(iconEl)
-        }
-        if (text) {
-            element.appendChild(document.createTextNode(text))
-        }
-        return element
+        this.selectEntry(this.activeModel)
     }
 
     /**
@@ -545,7 +525,7 @@ class ModelDropdown
      * @returns {HTMLElement}
      */
     createModelNodeList(folderName, modelTree, isRootFolder) {
-        const listElement = this.createElement('ul')
+        const listElement = createElement('ul')
 
         const foldersMap = new Map()
         const modelsMap = new Map()
@@ -570,7 +550,15 @@ class ModelDropdown
                 const fullPath = folderName ? `${folderName.substring(1)}/${model}` : model
                 modelsMap.set(
                     model,
-                    this.createElement('li', { 'data-path': fullPath }, classes, model, 'fa-regular fa-file'),
+                    createElement(
+                        'li',
+                        { 'data-path': fullPath },
+                        classes,
+                        [
+                            createElement('i', undefined, ['fa-regular', 'fa-file', 'icon']),
+                            model,
+                        ],
+                    ),
                 )
             }
         })
@@ -584,10 +572,21 @@ class ModelDropdown
         const modelElements = modelNames.map(name => modelsMap.get(name))
 
         if (modelElements.length && folderName) {
-            listElement.appendChild(this.createElement('li', undefined, ['model-folder'], folderName.substring(1), 'fa-solid fa-folder-open'))
+            listElement.appendChild(
+                createElement(
+                    'li',
+                    undefined,
+                    ['model-folder'],
+                    [
+                        createElement('i', undefined, ['fa-regular', 'fa-folder-open', 'icon']),
+                        folderName.substring(1),
+                    ],
+                )
+            )
         }
 
-        const allModelElements = isRootFolder ? [...folderElements, ...modelElements] : [...modelElements, ...folderElements]
+        // const allModelElements = isRootFolder ? [...folderElements, ...modelElements] : [...modelElements, ...folderElements]
+        const allModelElements = [...modelElements, ...folderElements]
         allModelElements.forEach(e => listElement.appendChild(e))
         return listElement
     }
@@ -597,13 +596,13 @@ class ModelDropdown
      * @returns {HTMLElement}
      */
     createRootModelList(modelTree) {
-        const rootList = this.createElement(
+        const rootList = createElement(
             'ul',
             { id: `${this.modelFilter.id}-model-list` },
             ['model-list'],
         )
         rootList.appendChild(
-            this.createElement(
+            createElement(
                 'li',
                 { id: `${this.modelFilter.id}-model-no-result` },
                 ['model-no-result'],
@@ -613,7 +612,7 @@ class ModelDropdown
 
         if (this.noneEntry) {
             rootList.appendChild(
-                this.createElement(
+                createElement(
                     'li',
                     { 'data-path': '' },
                     ['model-file', 'in-root-folder'],
@@ -622,13 +621,16 @@ class ModelDropdown
             )
         }
 
-        const containerListItem = this.createElement(
-            'li',
-            { id: `${this.modelFilter.id}-model-result` },
-            ['model-result'],
-        )
-        containerListItem.appendChild(this.createModelNodeList(undefined, modelTree, true))
-        rootList.appendChild(containerListItem)
+        if (modelTree.length > 0) {
+            const containerListItem = createElement(
+                'li',
+                { id: `${this.modelFilter.id}-model-result` },
+                ['model-result'],
+            )
+            //console.log(containerListItem)
+            containerListItem.appendChild(this.createModelNodeList(undefined, modelTree, true))
+            rootList.appendChild(containerListItem)
+        }
 
         return rootList
     }

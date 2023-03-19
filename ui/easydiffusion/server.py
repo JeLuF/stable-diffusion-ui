@@ -17,6 +17,7 @@ from easydiffusion.types import TaskData, GenerateImageRequest, MergeRequest, Do
 from easydiffusion.utils import log
 
 import asyncio, json
+import mimetypes
 
 log.info(f"started in {app.SD_DIR}")
 log.info(f"started at {datetime.datetime.now():%x %X}")
@@ -27,6 +28,13 @@ NOCACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate", "Prag
 
 
 class NoCacheStaticFiles(StaticFiles):
+    def __init__(self, directory: str):
+        # follow_symlink is only available on fastapi >= 0.92.0
+        if (os.path.islink(directory)):
+            super().__init__(directory = os.path.realpath(directory))
+        else:
+            super().__init__(directory = directory)
+
     def is_not_modified(self, response_headers, request_headers) -> bool:
         if "content-type" in response_headers and (
             "javascript" in response_headers["content-type"] or "css" in response_headers["content-type"]
@@ -47,6 +55,16 @@ class SetAppConfigRequest(BaseModel):
 
 
 def init():
+    mimetypes.init()
+    mimetypes.add_type('text/css', '.css')
+
+    if os.path.isdir(app.CUSTOM_MODIFIERS_DIR):
+        server_api.mount(
+            "/media/modifier-thumbnails/custom",
+            NoCacheStaticFiles(directory=app.CUSTOM_MODIFIERS_DIR),
+            name="custom-thumbnails",
+        )
+
     server_api.mount("/media", NoCacheStaticFiles(directory=os.path.join(app.SD_UI_DIR, "media")), name="media")
 
     for plugins_dir, dir_prefix in app.UI_PLUGINS_SOURCES:
@@ -253,7 +271,7 @@ def read_web_data_internal(key: str = None):
     elif key == "models":
         return JSONResponse(model_manager.getModels(), headers=NOCACHE_HEADERS)
     elif key == "modifiers":
-        return FileResponse(os.path.join(app.SD_UI_DIR, "modifiers.json"), headers=NOCACHE_HEADERS)
+        return JSONResponse(app.get_image_modifiers(), headers=NOCACHE_HEADERS)
     elif key == "ui_plugins":
         return JSONResponse(app.getUIPlugins(), headers=NOCACHE_HEADERS)
     else:
