@@ -137,6 +137,39 @@ if "%ERRORLEVEL%" EQU "0" (
         exit /b
     )
 )
+@rem install websockets
+call python ..\scripts\check_modules.py websockets 
+if "%ERRORLEVEL%" EQU "0" (
+    echo "websockets has already been installed."
+) else (
+    echo "Installing websockets.."
+
+    set PYTHONNOUSERSITE=1
+    set PYTHONPATH=%INSTALL_ENV_DIR%\lib\site-packages
+
+    call python -m pip install websockets || (
+        echo "Error installing websockets. Sorry about that, please try to:" & echo "  1. Run this installer again." & echo "  2. If that doesn't fix it, please try the common troubleshooting steps at https://github.com/cmdr2/stable-diffusion-ui/wiki/Troubleshooting" & echo "  3. If those steps don't help, please copy *all* the error messages in this window, and ask the community at https://discord.com/invite/u9yhsFmEkB" & echo "  4. If that doesn't solve the problem, please file an issue at https://github.com/cmdr2/stable-diffusion-ui/issues" & echo "Thanks!"
+        pause
+        exit /b
+    )
+)
+
+@rem install aiofile
+call python ..\scripts\check_modules.py aiofile 
+if "%ERRORLEVEL%" EQU "0" (
+    echo "aiofile has already been installed."
+) else (
+    echo "Installing aiofile.."
+
+    set PYTHONNOUSERSITE=1
+    set PYTHONPATH=%INSTALL_ENV_DIR%\lib\site-packages
+
+    call python -m pip install aiofile || (
+        echo "Error installing aiofile. Sorry about that, please try to:" & echo "  1. Run this installer again." & echo "  2. If that doesn't fix it, please try the common troubleshooting steps at https://github.com/cmdr2/stable-diffusion-ui/wiki/Troubleshooting" & echo "  3. If those steps don't help, please copy *all* the error messages in this window, and ask the community at https://discord.com/invite/u9yhsFmEkB" & echo "  4. If that doesn't solve the problem, please file an issue at https://github.com/cmdr2/stable-diffusion-ui/issues" & echo "Thanks!"
+        pause
+        exit /b
+    )
+)
 
 set PATH=C:\Windows\System32;%PATH%
 
