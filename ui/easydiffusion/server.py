@@ -155,7 +155,7 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-        for channel in self.channels:
+        for channel in list(self.channels):
             if websocket in self.channels[channel]:
                 self.channels[channel].remove(websocket)
                 if len(self.channels[channel]) == 0:
@@ -166,6 +166,7 @@ class ConnectionManager:
             log.info("Send message '%s'" % (message))
             await websocket.send_text(message)
         except:
+            log.warn("found disconnected socket")
             self.disconnect(websocket)
 
     async def send_to_channel(self, channel_name: str, message: str):
@@ -175,7 +176,7 @@ class ConnectionManager:
         pprint(message)
         if channel_name in self.channels:
             tasks = []
-            for socket in self.channels[channel_name]:
+            for socket in list(self.channels[channel_name]):
                 tasks.append(self.send_personal_message(message, socket))
             await asyncio.gather(*tasks)
 

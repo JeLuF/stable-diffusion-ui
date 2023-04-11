@@ -455,11 +455,174 @@
         <div>
             <i class="close-button fa-solid fa-xmark"></i>
             <h1>Add models</h1>
-            <h2>Stable Diffusion</h2>
-            <p>Choose a model to use for Stable Diffusion. You can add more models later on.</p>
-            <select id="add-sd-select" size="16"></select><br/><br/>
-            <button id="add-sd-button" class="primaryButton">Download model</button>
-        </div>
+            <div class="tab-container">
+               <span id="tab-a" class="tab active">
+                   <span>Common Models</span>
+               </span>
+               <span id="tab-b" class="tab">
+                   <span>Model DB</span>
+               </span>
+               <span id="tab-c" class="tab">
+                   <span>3<sup>rd</sup> party models</span>
+               </span>
+            </div>
+            <div>
+               <div id="tab-content-a" class="tab-content active" style="background:var(--background-color1);">
+                  <div class="tab-content-inner">
+                     <div class="parameters-table" id="add-models-list">
+                         <div>
+                             <div>1.5</div>
+                             <div><label for="bm2">Stable Diffusion 1.5 (2GB)</label><small>An updated version of SD 1.4 with slight improvements.</small></div>
+                             <div>
+                                 <button 
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                        'stable-diffusion',
+                                        'Stable Diffusion 1.5',
+                                        'https://github.com/JeLuF/stable-diffusion-ui/releases/download/blabla/v1-5-pruned-emaonly.fp16.safetensors'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                         <div>
+                             <div>2.1</div>
+                             <div><label for="bm3">Stable Diffusion 2.1 (5GB)</label><small>SD 2.1 was trained on a dataset of images with a resolution of
+                                 512×512 with NSFW images removed.</small></div>
+                             <div>
+                                 <button
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                         'stable-diffusion',
+                                         'Stable Diffusion 2.1',
+                                         'https://huggingface.co/stabilityai/stable-diffusion-2-1-base/resolve/main/v2-1_512-ema-pruned.safetensors'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                         <div>
+                             <div>2.1 768</div>
+                             <div><label for="bm4">Stable Diffusion 2.1-768</label><small>SD 2.1-768 was trained on a dataset of images with a resolution of
+                                 768×768 with NSFW images removed. (6GB of GPU Video RAM recommended)</small></div>
+                             <div>
+                                 <button
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                         'stable-diffusion',
+                                         'Stable Diffusion 2.1 (768)',
+                                         'https://huggingface.co/stabilityai/stable-diffusion-2-1/resolve/main/v2-1_768-ema-pruned.safetensors'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                     </div>
+                  </div>
+               </div>
+               <div id="tab-content-b" class="tab-content" style="background:var(--background-color1);">
+                  <div class="tab-content-inner">
+                     <h2>Stable Diffusion</h2>
+                     <select id="add-sd-select" size="16"></select><br/><br/>
+                     <dl style="text-align:left;font-size:90%;">
+                        <dt>EMA</dt><dd>Model variant that is best suited for training, which makes the model file bigger (Easy Diffusion doesn't support training).</dd>
+                        <dt>Non-EMA</dt><dd>Model variant best used for image generation. Smaller than EMA files, but same image quality.</dd>
+                        <dt>Pruned &amp; unpruned</dt><dd>Pruned models are simplified model versions which makes them smaller and faster.</dd>
+                        <dt>safetensors</dt><dd>Safetensors files contain the same data as ckpt files, but in a safer file format. Always use these when available.</dd>
+                        <dt>512 or 768</dt><dd>Image size used for the training of the model.</dd>
+                     </dl>
+                     <button id="add-sd-button" class="primaryButton">Download model</button>
+                  </div>
+               </div>
+               <div id="tab-content-c" class="tab-content" style="background:var(--background-color1);">
+                  <div class="tab-content-inner">
+                     <div class="parameters-table" id="add-models-list">
+                         <div>
+                             <div style="width:100px;"><img src="/media/images/model-deliberate.jpg" width="100px"></div>
+                             <div><label>Deliberate (2GB)</label><small>"This model provides you the ability to create anything
+                             you want. The more power of prompt knowledges you have, the better results you'll get. It
+                             basically means that you'll never get a perfect result with just a few words. You have to
+                             fill out your prompt line extremely detailed."
+                             <br>(<a href="https://civitai.com/models/4823/deliberate" target="_blank">Demo, Infos & License</a>)</small></div>
+                             <div>
+                                 <button 
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                        'stable-diffusion',
+                                        'Deliberate',
+                                        'https://civitai.com/api/download/models/15236'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                         <div>
+                             <div><img src="/media/images/model-realistic-vision.jpg" width="100px"></div>
+                             <div><label for="bm3">Realistic Vision V2.0 (2GB)</label><small>Model merge based on some well known models focussed on
+                             photorealistic images. 
+                             <br>(<a href="https://civitai.com/models/4201/realistic-vision-v20" target="_blank">Demo, Infos & License</a>)</small></div>
+                             <div>
+                                 <button
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                         'stable-diffusion',
+                                         'Realistic Vision V2.0 (2GB)',
+                                         'https://civitai.com/api/download/models/29460'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                         <div>
+                             <div><img src="/media/images/model-dreamshaper.jpg" width="100px"></div>
+                             <div><label for="bm3">DreamShaper (3.6GB)</label><small>"This started as a model to make good
+                             portraits that do not look like cg or photos with heavy filters, but more like actual paintings.
+                             The result is a model capable of doing portraits like I wanted, but also great backgrounds and
+                             anime-style characters." 
+                             <br>(<a href="https://civitai.com/models/4384/dreamshaper" target="_blank">Demo, Infos & License</a>)</small></div>
+                             <div>
+                                 <button
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                         'stable-diffusion',
+                                         'DreamShaper',
+                                         'https://civitai.com/api/download/models/25067'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                         <div>
+                             <div><img src="/media/images/model-meina.jpg" width="100px"></div>
+                             <div><label for="bm3">MeinaMix (3.2GB)</label><small>Model focussed on anime characters
+                             <br>(<a href="https://civitai.com/models/7240" target="_blank">Demo, Infos & License</a>)</small></div>
+                             <div>
+                                 <button
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                         'stable-diffusion',
+                                         'MeinaMix',
+                                         'https://civitai.com/api/download/models/20322'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                         <div>
+                             <div><img src="/media/images/model-pastelmix.jpg" width="100px"></div>
+                             <div><label for="bm3">Pastel-Mix [Stylized Anime Model] (2GB)</label><small>"A stylized anime
+                             model. This model is made with the thought of imitating pastel-like art while introducing
+                             the potential of merging LORAs into a model altogether to create a fantastic mix."
+                             <br>(<a href="https://civitai.com/models/5414" target="_blank">Demo, Infos & License</a>)</small></div>
+                             <div>
+                                 <button
+                                     class="primaryButton"
+                                     onclick="startModelDownload(
+                                         'stable-diffusion',
+                                         'Pastel-Mix',
+                                         'https://civitai.com/api/download/models/6297'
+                                     )"
+                                 >Download</button>
+                             </div>
+                         </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
     </div>
 
     <div id="no-models-popup" class="popup">

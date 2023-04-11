@@ -1675,6 +1675,9 @@ async function getModelDB() {
             return {}
         }
         let db = await res.json()
+        Object.keys(db['stable-diffusion']).forEach( k => {
+            db['stable-diffusion'][k].file = db['stable-diffusion'][k].url.split('/').pop().split('.')[0] 
+        })
         console.log('get models response', db)
         return db
     } catch (e) {
@@ -1687,6 +1690,9 @@ addModel.addEventListener("click", async function() {
     addModelsPopup.querySelector('#add-sd-select').innerHTML = Object.keys(db["stable-diffusion"]).sort().filter( 
            // models with a purpose don't work
            k => !('model_purpose' in db["stable-diffusion"][k].metadata)
+        ).filter(
+           // remove already installed models
+           k => !modelsOptions['stable-diffusion'].includes(db['stable-diffusion'][k].file) 
         ).map( k => {
             const m = db["stable-diffusion"][k]
             return `<option value="${k}">${m.name}</option>`
@@ -1695,15 +1701,13 @@ addModel.addEventListener("click", async function() {
 })
 
 document.querySelector('#add-sd-button').addEventListener('click', async function(e) {
+    const db = await getModelDB()
     console.log(addModelsPopup.querySelector('#add-sd-select').value)
-    let res = await fetch('/model/download_known', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({'model_type':'stable-diffusion', 'model_id':addModelsPopup.querySelector('#add-sd-select').value})
-    })     
-    console.log(await res.json())
+    let model_id = addModelsPopup.querySelector('#add-sd-select').value
+    let label = db['stable-diffusion'][model_id].name
+    let url = db['stable-diffusion'][model_id].url
+
+    startModelDownload('stable-diffusion', label, url)
 })
 
 promptField.addEventListener("input", debounce( renameMakeImageButton, 1000) )
@@ -1740,29 +1744,35 @@ window.addEventListener("beforeunload", function(e) {
     }
 });
 
+function startModelDownload(modelType, label, url)  {
+    console.log(`Downloading "${label}" @ "${url}" -> "${modelType}"`)
+    let div = document.createElement('div')
+    div.innerHTML = `
+                <div class="dl-percent">0%</div>
+                <div>
+                    <div class="dl-label">${label}</div>
+                    <div class="dl-bar" style="width:0%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div>
+                </div>
+                <div></div>`
+
+    div.dataset.downloadurl = url
+    downloadTable.appendChild(div)
+    connection_manager.sendJSON({
+       'type': 'model_download',
+       'channel': SD.sessionId,
+       'url': url,
+       'model_type': modelType
+    })
+}
+
+
 noModelsDownloadButton.addEventListener("click", (e) => {
     document.querySelectorAll('#no-models-list input').forEach((toggle) => {
         if (toggle.checked) {
             let url   = toggle.dataset.url
             let label = toggle.dataset.label
             console.log(url)
-            let div = document.createElement('div')
-            div.innerHTML = `
-                        <div class="dl-percent">0%</div>
-                        <div>
-                            <div class="dl-label">${label}</div>
-                            <div class="dl-bar" style="width:0%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div>
-                        </div>
-                        <div></div>`
-
-            div.dataset.downloadurl = url
-            downloadTable.appendChild(div)
-            connection_manager.sendJSON({
-               'type': 'model_download',
-               'channel': SD.sessionId,
-               'url': url,
-               'model_type': 'stable-diffusion'
-            })
+            startModelDownload('stable-diffusion', label, url)
         }
     })
 })
