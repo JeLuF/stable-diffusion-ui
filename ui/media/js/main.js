@@ -84,6 +84,7 @@ let addModelsPopup = document.querySelector('#add-models-popup')
 let addModelsButton = document.querySelector('#add-sd-button')
 
 let noModelsDownloadButton = document.querySelector('#no-models-download')
+let downloadInfo = document.querySelector('#download-info')
 let downloadTable = document.querySelector('#download-table')
 
 const processOrder = document.querySelector('#process_order_toggle')
@@ -1757,6 +1758,7 @@ function startModelDownload(modelType, label, url)  {
 
     div.dataset.downloadurl = url
     downloadTable.appendChild(div)
+    downloadInfo.classList.remove('displayNone')
     connection_manager.sendJSON({
        'type': 'model_download',
        'channel': SD.sessionId,
@@ -1781,6 +1783,9 @@ connection_manager.addHandler('model_download_status', (data) => {
     let div = downloadTable.querySelector(`[data-downloadurl="${data.url}"]`)
     if (data.state == 'completed') {
        div.remove()
+       if (downloadTable.childElementCount == 0) {
+           downloadInfo.classList.add('displayNone')
+       }
     } else {
         let percentage = Math.floor( 100 * data.downloaded / data.total )
         div.querySelector('.dl-percent').innerHTML= `${percentage}%`
@@ -1788,6 +1793,9 @@ connection_manager.addHandler('model_download_status', (data) => {
     }
 })
 
+connection_manager.addHandler('refresh_models', async function(data) {
+    await getModels()
+})
 createCollapsibles()
 prettifyInputs(document);
 

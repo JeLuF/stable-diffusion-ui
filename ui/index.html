@@ -283,32 +283,16 @@
         </div>
 
         <div id="preview" class="col-free">
+            <div id="download-info" class="displayNone">
+                <h2>Download progress</h2>
+                <div class="parameters-table" id="download-table"></div> 
+            </div>
             <div id="initial-text">
                 Type a prompt and press the "Make Image" button.<br/><br/>You can set an "Initial Image" if you want to guide the AI.<br/><br/>
                 You can also add modifiers like "Realistic", "Pencil Sketch", "ArtStation" etc by browsing through the "Image Modifiers" section 
                 and selecting the desired modifiers.<br/><br/>
                 Click "Image Settings" for additional settings like seed, image size, number of images to generate etc.<br/><br/>Enjoy! :)
             </div>
-            <div id="download-info">
-                <h2>Download progress</h2>
-                <div class="parameters-table" id="download-table">
-                    <div>
-                        <div>25%</div>
-                        <div>
-                            <div>Stable Diffusion v1.4 (1.9GB)</div>
-                            <div style="width:25%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div></div>
-                        <div></div>
-                    </div>
-                    <div>
-                        <div>0%</div>
-                        <div>
-                            <div>Stable Diffusion v2.1-768 (4GB)</div>
-                            <div style="width:0%; border-radius:12px; color:white; background: var(--accent-color);">&nbsp;</div></div>
-                        <div></div>
-                    </div>
-                </div> 
-            </div>
-
             <div id="preview-content">
                 <div id="preview-tools">
                     <button id="clear-all-previews" class="secondaryButton"><i class="fa-solid fa-trash-can icon"></i> Clear All</button>
@@ -456,20 +440,23 @@
             <i class="close-button fa-solid fa-xmark"></i>
             <h1>Add models</h1>
             <div class="tab-container">
-               <span id="tab-a" class="tab active">
+               <span id="tab-add-common-models" class="tab active">
                    <span>Common Models</span>
                </span>
-               <span id="tab-b" class="tab">
+               <span id="tab-add-from-modeldb" class="tab">
                    <span>Model DB</span>
                </span>
-               <span id="tab-c" class="tab">
+               <span id="tab-add-popular" class="tab">
                    <span>3<sup>rd</sup> party models</span>
+               </span>
+               <span id="tab-add-manual" class="tab">
+                   <span>Manual installation</span>
                </span>
             </div>
             <div>
-               <div id="tab-content-a" class="tab-content active" style="background:var(--background-color1);">
+               <div id="tab-content-add-common-models" class="tab-content active" style="background:var(--background-color1);">
                   <div class="tab-content-inner">
-                     <div class="parameters-table" id="add-models-list">
+                     <div class="parameters-table" id="add-models-list-core">
                          <div>
                              <div>1.5</div>
                              <div><label for="bm2">Stable Diffusion 1.5 (2GB)</label><small>An updated version of SD 1.4 with slight improvements.</small></div>
@@ -517,25 +504,26 @@
                      </div>
                   </div>
                </div>
-               <div id="tab-content-b" class="tab-content" style="background:var(--background-color1);">
+               <div id="tab-content-add-from-modeldb" class="tab-content" style="background:var(--background-color1);">
                   <div class="tab-content-inner">
                      <h2>Stable Diffusion</h2>
                      <select id="add-sd-select" size="16"></select><br/><br/>
                      <dl style="text-align:left;font-size:90%;">
-                        <dt>EMA</dt><dd>Model variant that is best suited for training, which makes the model file bigger (Easy Diffusion doesn't support training).</dd>
-                        <dt>Non-EMA</dt><dd>Model variant best used for image generation. Smaller than EMA files, but same image quality.</dd>
-                        <dt>Pruned &amp; unpruned</dt><dd>Pruned models are simplified model versions which makes them smaller and faster.</dd>
-                        <dt>safetensors</dt><dd>Safetensors files contain the same data as ckpt files, but in a safer file format. Always use these when available.</dd>
-                        <dt>512 or 768</dt><dd>Image size used for the training of the model.</dd>
+                        <p><b>EMA</b> - Model variant that is best suited for training, which makes the model file bigger (Easy Diffusion doesn't support training).</p>
+                        <p><b>Non-EMA</b> - Model variant best used for image generation. Smaller than EMA files, but same image quality.</p>
+                        <p><b>Pruned &amp; unpruned</b> - Pruned models are simplified model versions which makes them smaller and faster.</p>
+                        <p><b>safetensors</b> - Safetensors files contain the same data as ckpt files, but in a safer file format. Always use these when available.</p>
+                        <p><b>512 or 768</b> - Image size used for the training of the model.</p>
                      </dl>
                      <button id="add-sd-button" class="primaryButton">Download model</button>
                   </div>
                </div>
-               <div id="tab-content-c" class="tab-content" style="background:var(--background-color1);">
+               <div id="tab-content-add-popular" class="tab-content" style="background:var(--background-color1);">
                   <div class="tab-content-inner">
-                     <div class="parameters-table" id="add-models-list">
+                     <p>Some popular models from the model repository <a href="https://civitai.com/">Civitai</a>.
+                     <div class="parameters-table" id="add-models-list-civ">
                          <div>
-                             <div style="width:100px;"><img src="/media/images/model-deliberate.jpg" width="100px"></div>
+                             <div><img src="/media/images/model-deliberate.jpg" width="100px"></div>
                              <div><label>Deliberate (2GB)</label><small>"This model provides you the ability to create anything
                              you want. The more power of prompt knowledges you have, the better results you'll get. It
                              basically means that you'll never get a perfect result with just a few words. You have to
@@ -621,6 +609,18 @@
                      </div>
                   </div>
                </div>
+               <div id="tab-content-add-manual" class="tab-content" style="background:var(--background-color1);">
+                  <div class="tab-content-inner" style="text-align:left;">
+                     <p>If you've downloaded a model, you can make it available to Stable Diffusion UI:</p>
+                     <p>Copy the model file to the <tt>models\stable-diffusion</tt> folder (inside the installed folder).
+                     The file should have the suffix <tt>.ckpt</tt> or <tt>.safetensors</tt>.</p>
+                     <p>If the model comes with a .yaml file, please place that yaml file next to the model, with
+                     the same name. For e.g. if the model is <tt>some-model.ckpt</tt> (or <tt>some-model.safetensors</tt>),
+                     then please rename the yaml file to <tt>some-model.yaml</tt>, and place it next to the model file
+                     in the same folder.</p>
+                     <p>Refresh the model list using the "reload"-icon in the "Model" section in the image settings.</p>
+                  </div>
+              </div>
             </div>
          </div>
     </div>

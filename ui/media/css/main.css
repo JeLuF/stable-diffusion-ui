@@ -1296,3 +1296,15 @@ body.wait-pause {
 .displayNone {
     display:none !important;
 }
+
+#add-models-list-civ > div > div {
+    width: 100px;
+    margin-left: 6px;
+}
+
+#tab-content-add-manual tt {
+    font-family: monospace;
+    color: #aaaaaa;
+    background: #111111;
+}
+
