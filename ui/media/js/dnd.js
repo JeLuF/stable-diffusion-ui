@@ -97,6 +97,7 @@ const TASK_MAPPING = {
                 return
             }
             randomSeedField.checked = false
+            randomSeedField.dispatchEvent(new Event('change')) // let plugins know that the state of the random seed toggle changed
             seedField.disabled = false
             seedField.value = seed
         },
@@ -230,6 +231,28 @@ const TASK_MAPPING = {
         readUI: () => vaeModelField.value,
         parse: (val) => val
     },
+    use_lora_model: { name: 'LoRA model',
+        setUI: (use_lora_model) => {
+            const oldVal = loraModelField.value
+            use_lora_model = (use_lora_model === undefined || use_lora_model === null || use_lora_model === 'None' ? '' : use_lora_model)
+
+            if (use_lora_model !== '') {
+                use_lora_model = getModelPath(use_lora_model, ['.ckpt', '.safetensors'])
+                use_lora_model = use_lora_model !== '' ? use_lora_model : oldVal
+            }
+            loraModelField.value = use_lora_model
+        },
+        readUI: () => loraModelField.value,
+        parse: (val) => val
+    },
+    lora_alpha: { name: 'LoRA Strength',
+        setUI: (lora_alpha) => {
+            loraAlphaField.value = lora_alpha
+            updateLoraAlphaSlider()
+        },
+        readUI: () => parseFloat(loraAlphaField.value),
+        parse: (val) => parseFloat(val)
+    },
     use_hypernetwork_model: { name: 'Hypernetwork model',
         setUI: (use_hypernetwork_model) => {
             const oldVal = hypernetworkModelField.value
@@ -325,7 +348,12 @@ function restoreTaskToUI(task, fieldsToSkip) {
         hypernetworkModelField.value = ""
         hypernetworkModelField.dispatchEvent(new Event("change"))
     }
-
+    
+    if (!('use_lora_model' in task.reqBody)) {
+        loraModelField.value = ""
+        loraModelField.dispatchEvent(new Event("change"))
+    }
+    
     // restore the original prompt if provided (e.g. use settings), fallback to prompt as needed (e.g. copy/paste or d&d)
     promptField.value = task.reqBody.original_prompt
     if (!('original_prompt' in task.reqBody)) {
@@ -490,6 +518,7 @@ async function parseContent(text) {
         return true
     } else {
         console.warn(`Raw text content couldn't be parsed.`)
+        promptField.value = text
         return false
     }
 }
@@ -579,7 +608,7 @@ document.addEventListener('paste', async (event) => {
     }
     const paste = (event.clipboardData || window.clipboardData).getData('text')
     const selection = window.getSelection()
-    if (selection.toString().trim().length <= 0 && await parseContent(paste)) {
+    if (paste != "" && selection.toString().trim().length <= 0 && await parseContent(paste)) {
         event.preventDefault()
         return
     }

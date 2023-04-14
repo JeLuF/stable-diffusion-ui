@@ -10,7 +10,7 @@ from typing import List, Union
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Extra
 
 from easydiffusion import app, model_manager, task_manager, downloader
 from easydiffusion.types import TaskData, GenerateImageRequest, MergeRequest, DownloadKnownModelRequest
@@ -30,10 +30,10 @@ NOCACHE_HEADERS = {"Cache-Control": "no-cache, no-store, must-revalidate", "Prag
 class NoCacheStaticFiles(StaticFiles):
     def __init__(self, directory: str):
         # follow_symlink is only available on fastapi >= 0.92.0
-        if (os.path.islink(directory)):
-            super().__init__(directory = os.path.realpath(directory))
+        if os.path.islink(directory):
+            super().__init__(directory=os.path.realpath(directory))
         else:
-            super().__init__(directory = directory)
+            super().__init__(directory=directory)
 
     def is_not_modified(self, response_headers, request_headers) -> bool:
         if "content-type" in response_headers and (
@@ -45,18 +45,19 @@ class NoCacheStaticFiles(StaticFiles):
         return super().is_not_modified(response_headers, request_headers)
 
 
-class SetAppConfigRequest(BaseModel):
+class SetAppConfigRequest(BaseModel, extra=Extra.allow):
     update_branch: str = None
     render_devices: Union[List[str], List[int], str, int] = None
     model_vae: str = None
     ui_open_browser_on_start: bool = None
     listen_to_network: bool = None
     listen_port: int = None
+    test_diffusers: bool = False
 
 
 def init():
     mimetypes.init()
-    mimetypes.add_type('text/css', '.css')
+    mimetypes.add_type("text/css", ".css")
 
     if os.path.isdir(app.CUSTOM_MODIFIERS_DIR):
         server_api.mount(
@@ -229,6 +230,13 @@ def set_app_config_internal(req: SetAppConfigRequest):
         if "net" not in config:
             config["net"] = {}
         config["net"]["listen_port"] = int(req.listen_port)
+
+    config["test_diffusers"] = req.test_diffusers
+
+    for property, property_value in req.dict().items():
+        if property_value is not None and property not in req.__fields__:
+            config[property] = property_value
+
     try:
         app.setConfig(config)
 

@@ -9,13 +9,14 @@ from sdkit.models import load_model, unload_model, get_model_info_from_db, scan_
 from sdkit.utils import hash_file_quick
 
 
-KNOWN_MODEL_TYPES = ["stable-diffusion", "vae", "hypernetwork", "gfpgan", "realesrgan"]
+KNOWN_MODEL_TYPES = ["stable-diffusion", "vae", "hypernetwork", "gfpgan", "realesrgan", "lora"]
 MODEL_EXTENSIONS = {
     "stable-diffusion": [".ckpt", ".safetensors"],
     "vae": [".vae.pt", ".ckpt", ".safetensors"],
     "hypernetwork": [".pt", ".safetensors"],
     "gfpgan": [".pth"],
     "realesrgan": [".pth"],
+    "lora": [".ckpt", ".safetensors"],
 }
 DEFAULT_MODELS = {
     "stable-diffusion": [  # needed to support the legacy installations
@@ -25,7 +26,7 @@ DEFAULT_MODELS = {
     "gfpgan": ["GFPGANv1.3"],
     "realesrgan": ["RealESRGAN_x4plus"],
 }
-MODELS_TO_LOAD_ON_START = ["stable-diffusion", "vae", "hypernetwork"]
+MODELS_TO_LOAD_ON_START = ["stable-diffusion", "vae", "hypernetwork", "lora"]
 
 known_models = {}
 
@@ -42,11 +43,14 @@ def load_default_models(context: Context):
     for model_type in MODELS_TO_LOAD_ON_START:
         context.model_paths[model_type] = resolve_model_to_use(model_type=model_type)
         try:
-            load_model(context, model_type)
+            load_model(
+                context,
+                model_type,
+                scan_model = context.model_paths[model_type] != None and not context.model_paths[model_type].endswith('.safetensors')
+            )
         except Exception as e:
             log.error(f"[red]Error while loading {model_type} model: {context.model_paths[model_type]}[/red]")
-            log.error(f"[red]Error: {e}[/red]")
-
+            log.exception(e)
 
 def unload_all(context: Context):
     for model_type in KNOWN_MODEL_TYPES:
@@ -103,6 +107,7 @@ def reload_models_if_necessary(context: Context, task_data: TaskData):
         "gfpgan": task_data.use_face_correction,
         "realesrgan": task_data.use_upscale,
         "nsfw_checker": True if task_data.block_nsfw else None,
+        "lora": task_data.use_lora_model,
     }
     models_to_reload = {
         model_type: path
@@ -126,6 +131,7 @@ def resolve_model_paths(task_data: TaskData):
     )
     task_data.use_vae_model = resolve_model_to_use(task_data.use_vae_model, model_type="vae")
     task_data.use_hypernetwork_model = resolve_model_to_use(task_data.use_hypernetwork_model, model_type="hypernetwork")
+    task_data.use_lora_model = resolve_model_to_use(task_data.use_lora_model, model_type="lora")
 
     if task_data.use_face_correction:
         task_data.use_face_correction = resolve_model_to_use(task_data.use_face_correction, "gfpgan")
@@ -185,11 +191,13 @@ def getModels():
             "stable-diffusion": "sd-v1-4",
             "vae": "",
             "hypernetwork": "",
+            "lora": "",
         },
         "options": {
             "stable-diffusion": ["sd-v1-4"],
             "vae": [],
             "hypernetwork": [],
+            "lora": [],
         },
     }
 
@@ -244,6 +252,7 @@ def getModels():
     listModels(model_type="vae")
     listModels(model_type="hypernetwork")
     listModels(model_type="gfpgan")
+    listModels(model_type="lora")
 
     if models_scanned > 0:
         log.info(f"[green]Scanned {models_scanned} models. Nothing infected[/]")
