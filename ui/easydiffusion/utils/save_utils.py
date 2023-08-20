@@ -7,7 +7,7 @@ from datetime import datetime
 from functools import reduce
 
 from easydiffusion import app
-from easydiffusion.types import GenerateImageRequest, TaskData
+from easydiffusion.types import GenerateImageRequest, TaskData, OutputFormatData
 from numpy import base_repr
 from sdkit.utils import save_dicts, save_images
 
@@ -21,6 +21,8 @@ TASK_TEXT_MAPPING = {
     "seed": "Seed",
     "use_stable_diffusion_model": "Stable Diffusion model",
     "clip_skip": "Clip Skip",
+    "use_controlnet_model": "ControlNet model",
+    "control_filter_to_apply": "ControlNet Filter",
     "use_vae_model": "VAE model",
     "sampler_name": "Sampler",
     "width": "Width",
@@ -114,12 +116,14 @@ def format_file_name(
     return filename_regex.sub("_", format)
 
 
-def save_images_to_disk(images: list, filtered_images: list, req: GenerateImageRequest, task_data: TaskData):
+def save_images_to_disk(
+    images: list, filtered_images: list, req: GenerateImageRequest, task_data: TaskData, output_format: OutputFormatData
+):
     now = time.time()
     app_config = app.getConfig()
     folder_format = app_config.get("folder_format", "$id")
     save_dir_path = os.path.join(task_data.save_to_disk_path, format_folder_name(folder_format, req, task_data))
-    metadata_entries = get_metadata_entries_for_request(req, task_data)
+    metadata_entries = get_metadata_entries_for_request(req, task_data, output_format)
     file_number = calculate_img_number(save_dir_path, task_data)
     make_filename = make_filename_callback(
         app_config.get("filename_format", "$p_$tsb64"),
@@ -134,9 +138,9 @@ def save_images_to_disk(images: list, filtered_images: list, req: GenerateImageR
             filtered_images,
             save_dir_path,
             file_name=make_filename,
-            output_format=task_data.output_format,
-            output_quality=task_data.output_quality,
-            output_lossless=task_data.output_lossless,
+            output_format=output_format.output_format,
+            output_quality=output_format.output_quality,
+            output_lossless=output_format.output_lossless,
         )
         if task_data.metadata_output_format:
             for metadata_output_format in task_data.metadata_output_format.split(","):
@@ -146,7 +150,7 @@ def save_images_to_disk(images: list, filtered_images: list, req: GenerateImageR
                         save_dir_path,
                         file_name=make_filename,
                         output_format=metadata_output_format,
-                        file_format=task_data.output_format,
+                        file_format=output_format.output_format,
                     )
     else:
         make_filter_filename = make_filename_callback(
@@ -162,17 +166,17 @@ def save_images_to_disk(images: list, filtered_images: list, req: GenerateImageR
             images,
             save_dir_path,
             file_name=make_filename,
-            output_format=task_data.output_format,
-            output_quality=task_data.output_quality,
-            output_lossless=task_data.output_lossless,
+            output_format=output_format.output_format,
+            output_quality=output_format.output_quality,
+            output_lossless=output_format.output_lossless,
         )
         save_images(
             filtered_images,
             save_dir_path,
             file_name=make_filter_filename,
-            output_format=task_data.output_format,
-            output_quality=task_data.output_quality,
-            output_lossless=task_data.output_lossless,
+            output_format=output_format.output_format,
+            output_quality=output_format.output_quality,
+            output_lossless=output_format.output_lossless,
         )
         if task_data.metadata_output_format:
             for metadata_output_format in task_data.metadata_output_format.split(","):
@@ -181,20 +185,21 @@ def save_images_to_disk(images: list, filtered_images: list, req: GenerateImageR
                         metadata_entries,
                         save_dir_path,
                         file_name=make_filter_filename,
-                        output_format=task_data.metadata_output_format,
-                        file_format=task_data.output_format,
+                        output_format=metadata_output_format,
+                        file_format=output_format.output_format,
                     )
 
 
-def get_metadata_entries_for_request(req: GenerateImageRequest, task_data: TaskData):
-    metadata = get_printable_request(req, task_data)
+def get_metadata_entries_for_request(req: GenerateImageRequest, task_data: TaskData, output_format: OutputFormatData):
+    metadata = get_printable_request(req, task_data, output_format)
 
     # if text, format it in the text format expected by the UI
     is_txt_format = task_data.metadata_output_format and "txt" in task_data.metadata_output_format.lower().split(",")
     if is_txt_format:
+
         def format_value(value):
             if isinstance(value, list):
-                return ", ".join([ str(it) for it in value ])
+                return ", ".join([str(it) for it in value])
             return value
 
         metadata = {
@@ -208,12 +213,13 @@ def get_metadata_entries_for_request(req: GenerateImageRequest, task_data: TaskD
     return entries
 
 
-def get_printable_request(req: GenerateImageRequest, task_data: TaskData):
+def get_printable_request(req: GenerateImageRequest, task_data: TaskData, output_format: OutputFormatData):
     req_metadata = req.dict()
     task_data_metadata = task_data.dict()
+    task_data_metadata.update(output_format.dict())
 
     app_config = app.getConfig()
-    using_diffusers = app_config.get("test_diffusers", False)
+    using_diffusers = app_config.get("test_diffusers", True)
 
     # Save the metadata in the order defined in TASK_TEXT_MAPPING
     metadata = {}
@@ -222,8 +228,9 @@ def get_printable_request(req: GenerateImageRequest, task_data: TaskData):
             metadata[key] = req_metadata[key]
         elif key in task_data_metadata:
             metadata[key] = task_data_metadata[key]
-        elif key is "use_embedding_models" and using_diffusers:
+        elif key == "use_embedding_models" and using_diffusers:
             embeddings_extensions = {".pt", ".bin", ".safetensors"}
+
             def scan_directory(directory_path: str):
                 used_embeddings = []
                 for entry in os.scandir(directory_path):
@@ -232,15 +239,18 @@ def get_printable_request(req: GenerateImageRequest, task_data: TaskData):
                         if entry_extension not in embeddings_extensions:
                             continue
 
-                        embedding_name_regex = regex.compile(r"(^|[\s,])" + regex.escape(os.path.splitext(entry.name)[0]) + r"([+-]*$|[\s,]|[+-]+[\s,])")
+                        embedding_name_regex = regex.compile(
+                            r"(^|[\s,])" + regex.escape(os.path.splitext(entry.name)[0]) + r"([+-]*$|[\s,]|[+-]+[\s,])"
+                        )
                         if embedding_name_regex.search(req.prompt) or embedding_name_regex.search(req.negative_prompt):
                             used_embeddings.append(entry.path)
                     elif entry.is_dir():
                         used_embeddings.extend(scan_directory(entry.path))
                 return used_embeddings
+
             used_embeddings = scan_directory(os.path.join(app.MODELS_DIR, "embeddings"))
             metadata["use_embedding_models"] = used_embeddings if len(used_embeddings) > 0 else None
-    
+
     # Clean up the metadata
     if req.init_image is None and "prompt_strength" in metadata:
         del metadata["prompt_strength"]
@@ -252,9 +262,16 @@ def get_printable_request(req: GenerateImageRequest, task_data: TaskData):
         del metadata["lora_alpha"]
     if task_data.use_upscale != "latent_upscaler" and "latent_upscaler_steps" in metadata:
         del metadata["latent_upscaler_steps"]
+    if task_data.use_controlnet_model is None and "control_filter_to_apply" in metadata:
+        del metadata["control_filter_to_apply"]
 
-    if not using_diffusers:
-        for key in (x for x in ["use_lora_model", "lora_alpha", "clip_skip", "tiling", "latent_upscaler_steps"] if x in metadata):
+    if using_diffusers:
+        for key in (x for x in ["use_hypernetwork_model", "hypernetwork_strength"] if x in metadata):
+            del metadata[key]
+    else:
+        for key in (
+            x for x in ["use_lora_model", "lora_alpha", "clip_skip", "tiling", "latent_upscaler_steps", "use_controlnet_model", "control_filter_to_apply"] if x in metadata
+        ):
             del metadata[key]
 
     return metadata

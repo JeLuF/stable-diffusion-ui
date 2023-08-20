@@ -22,6 +22,30 @@
 Our focus continues to remain on an easy installation experience, and an easy user-interface. While still remaining pretty powerful, in terms of features and speed.
 
 ### Detailed changelog
+* 3.0.1 - 18 Aug 2023 - Rotate an image if EXIF rotation is present. For e.g. this is common in images taken with a smartphone.
+* 3.0.1 - 18 Aug 2023 - Resize control images to the task dimensions, to avoid memory errors with high-res control images.
+* 3.0.1 - 18 Aug 2023 - Show controlnet filter preview in the task entry.
+* 3.0.1 - 18 Aug 2023 - Fix drag-and-drop and 'Use these Settings' for LoRA and ControlNet.
+* 3.0.1 - 18 Aug 2023 - Auto-save LoRA models and strengths.
+* 3.0.1 - 17 Aug 2023 - Automatically use the correct yaml config file for custom SDXL models, even if a yaml file isn't present in the folder.
+* 3.0.1 - 17 Aug 2023 - Fix broken embeddings with SDXL.
+* 3.0.1 - 16 Aug 2023 - Fix broken LoRA with SDXL.
+* 3.0.1 - 15 Aug 2023 - Fix broken seamless tiling.
+* 3.0.1 - 15 Aug 2023 - Fix textual inversion embeddings not working in `low` VRAM usage mode.
+* 3.0.1 - 15 Aug 2023 - Fix for custom VAEs not working in `low` VRAM usage mode.
+* 3.0.1 - 14 Aug 2023 - Slider to change the image dimensions proportionally (in Image Settings). Thanks @JeLuf.
+* 3.0.1 - 14 Aug 2023 - Show an error to the user if an embedding isn't compatible with the model, instead of failing silently without informing the user. Thanks @JeLuf.
+* 3.0.1 - 14 Aug 2023 - Disable watermarking for SDXL img2img. Thanks @AvidGameFan.
+* 3.0.0 - 3 Aug 2023 - Enabled diffusers for everyone by default. The old v2 engine can be used by disabling the "Use v3 engine" option in the Settings tab.
+* 2.5.48 - 1 Aug 2023 - (beta-only) Full support for ControlNets. You can select a control image to guide the AI. You can pick a filter to pre-process the image, and one of the known (or custom) controlnet models. Supports `OpenPose`, `Canny`, `Straight Lines`, `Depth`, `Line Art`, `Scribble`, `Soft Edge`, `Shuffle` and `Segment`.
+* 2.5.47 - 30 Jul 2023 - An option to use `Strict Mask Border` while inpainting, to avoid touching areas outside the mask. But this might show a slight outline of the mask, which you will have to touch up separately.
+* 2.5.47 - 29 Jul 2023 - (beta-only) Fix long prompts with SDXL.
+* 2.5.47 - 29 Jul 2023 - (beta-only) Fix red dots in some SDXL images.
+* 2.5.47 - 29 Jul 2023 - Significantly faster `Fix Faces` and `Upscale` buttons (on the image). They no longer need to generate the image from scratch, instead they just upscale/fix the generated image in-place.
+* 2.5.47 - 28 Jul 2023 - Lots of internal code reorganization, in preparation for supporting Controlnets. No user-facing changes.
+* 2.5.46 - 27 Jul 2023 - (beta-only) Full support for SD-XL models (base and refiner)!
+* 2.5.45 - 24 Jul 2023 - (beta-only) Hide the samplers that won't be supported in the new diffusers version.
+* 2.5.45 - 22 Jul 2023 - (beta-only) Fix the recently-broken inpainting models.
 * 2.5.45 - 16 Jul 2023 - (beta-only) Fix the image quality of LoRAs, which had degraded in v2.5.44.
 * 2.5.44 - 15 Jul 2023 - (beta-only) Support for multiple LoRA files.
 * 2.5.43 - 9 Jul 2023 - (beta-only) Support for loading Textual Inversion embeddings. You can find the option in the Image Settings panel. Thanks @JeLuf.
