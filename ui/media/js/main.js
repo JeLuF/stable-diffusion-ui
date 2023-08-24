@@ -509,7 +509,7 @@ function showImages(reqBody, res, outputContainer, livePreview) {
                     { text: "Upscale", on_click: onUpscaleClick },
                     { text: "Fix Faces", on_click: onFixFacesClick },
                 ],
-                { text: "Use as Thumbnail", on_click: onUseAsThumbnailClick, filter: (req, img) => "use_embeddings_model" in req },
+                { text: "Use as Thumbnail", on_click: onUseAsThumbnailClick, filter: (req, img) => "use_embeddings_model" in req || "use_lora_model" in req},
             ]
 
             // include the plugins
@@ -725,11 +725,15 @@ function onUseAsThumbnailClick(req, img) {
 
     if ("use_lora_model" in req) {
         LORA = req.use_lora_model
+        if (typeof LORA == "string") {
+            LORA = [LORA]
+        }
     }
 
-    let optgroup = document.createElement("optgroup")
-    optgroup.label = "Embeddings"
-    optgroup.replaceChildren(
+    console.log(req)
+    let embOptions = document.createElement("optgroup")
+    embOptions.label = "Embeddings"
+    embOptions.replaceChildren(
         ...embeddings.map((e) => {
             let option = document.createElement("option")
             option.innerText = e
@@ -738,7 +742,18 @@ function onUseAsThumbnailClick(req, img) {
         })
     )
 
-    useAsThumbSelect.replaceChildren(optgroup)
+    let loraOptions = document.createElement("optgroup")
+    loraOptions.label = "LORA"
+    loraOptions.replaceChildren(
+        ...LORA.map((e) => {
+            let option = document.createElement("option")
+            option.innerText = e
+            option.dataset["type"] = "lora"
+            return option
+        })
+    )
+
+    useAsThumbSelect.replaceChildren(embOptions, loraOptions)
     useAsThumbDialog.showModal()
     onUseAsThumbnailClick.scale = scale
 }
@@ -754,6 +769,50 @@ useAsThumbCancelBtn.addEventListener("click", () => {
     useAsThumbDialog.close()
 })
 
+const Bucket = {
+    upload(path, blob) {
+        const formData = new FormData()
+        formData.append("file", blob)
+        return fetch(`bucket/${path}`, {
+            method: "POST",
+            body: formData,
+        })
+    },
+
+    getImageAsDataURL(path) {
+        return fetch(`bucket/${path}`)
+            .then((response) => {
+                if (response.status == 200) {
+                    return response.blob()
+                } else {
+                    throw new Error("Bucket error")
+                }
+            })
+            .then((blob) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader()
+                    reader.onload = () => resolve(reader.result)
+                    reader.onerror = reject
+                    reader.readAsDataURL(blob)
+                })
+            })
+    },
+
+    getList(path) {
+        return fetch(`bucket/${path}`)
+            .then((response) => (response.status == 200 ? response.json() : []))
+    },
+
+    store(path, data) {
+        return Bucket.upload(`${path}.json`, JSON.stringify(data))
+    },
+
+    retrieve(path) {
+        return fetch(`bucket/${path}.json`)
+            .then((response) => (response.status == 200 ? response.json() : null))
+    },
+}
+
 useAsThumbSaveBtn.addEventListener("click", (e) => {
     let scale = 1 / onUseAsThumbnailClick.scale
     let crop = onUseAsThumbnailClick.croppr.getValue()
@@ -765,16 +824,11 @@ useAsThumbSaveBtn.addEventListener("click", (e) => {
         .then((thumb) => fetch(thumb))
         .then((response) => response.blob())
         .then(async function(blob) {
-            const formData = new FormData()
-            formData.append("file", blob)
             let options = useAsThumbSelect.selectedOptions
             let promises = []
             for (let embedding of options) {
                 promises.push(
-                    fetch(`bucket/${profileName}/${embedding.dataset["type"]}/${embedding.value}.png`, {
-                        method: "POST",
-                        body: formData,
-                    })
+                    Bucket.upload(`${profileName}/${embedding.dataset["type"]}/${embedding.value}.png`, blob)
                 )
             }
             return Promise.all(promises)
@@ -2318,20 +2372,12 @@ function loadThumbnailImageFromFile() {
 
 
 function updateEmbeddingsList(filter = "") {
-    function html(model, iconlist = [], prefix = "", filter = "") {
+    function html(model, iconMap = {}, prefix = "", filter = "") {
         filter = filter.toLowerCase()
         let toplevel = document.createElement("div")
         let folders = document.createElement("div")
-        let embIcon = Object.assign(
-            {},
-            ...iconlist.map((x) => ({
-                [x
-                    .toLowerCase()
-                    .split(".")
-                    .slice(0, -1)
-                    .join(".")]: x,
-            }))
-        )
+
+        // console.log(iconMap)
 
         let profileName = profileNameField.value
         model?.forEach((m) => {
@@ -2344,8 +2390,8 @@ function updateEmbeddingsList(filter = "") {
                     //     button.innerText = m
                     // } else {
                     let img = "/media/images/noimg.png"
-                    if (token in embIcon) {
-                        img = `/bucket/${profileName}/embeddings/${embIcon[token]}`
+                    if (token in iconMap) {
+                        img = `/bucket/${profileName}/${iconMap[token]}`
                     }
                     button = createModifierCard(m, [img, img], true)
                     // }
@@ -2354,7 +2400,7 @@ function updateEmbeddingsList(filter = "") {
                     toplevel.appendChild(button)
                 }
             } else {
-                let subdir = html(m[1], iconlist, prefix + m[0] + "/", filter)
+                let subdir = html(m[1], iconMap, prefix + m[0] + "/", filter)
                 if (typeof subdir == "object") {
                     let div1 = document.createElement("div")
                     let div2 = document.createElement("div")
@@ -2413,11 +2459,47 @@ function updateEmbeddingsList(filter = "") {
         </div>
     `
 
+    let loraTokens = []
     let profileName = profileNameField.value
-    fetch(`/bucket/${profileName}/embeddings/`)
-        .then((response) => (response.status == 200 ? response.json() : []))
-        .then(async function(iconlist) {
-            embeddingsList.replaceChildren(html(modelsOptions.embeddings, iconlist, "", filter))
+    let iconMap = {}
+
+    Bucket.getList(`${profileName}/embeddings/`)
+        .then(async function(icons) {
+            iconMap = Object.assign(
+                {},
+                ...icons.map((x) => ({
+                    [x
+                        .toLowerCase()
+                        .split(".")
+                        .slice(0, -1)
+                        .join(".")]: `embeddings/${x}`,
+                }))
+            )
+
+            let promises = []
+            for (let lora of loraModelField.value.modelNames) {
+                promises.push(
+                    getLoraKeywords(lora)
+                        .then((tokens) => {loraTokens = loraTokens.concat(tokens)})
+                )
+                // get path of lora
+                let path = ("/"+lora).split("/")
+                // Remove model from path
+                path.pop()
+                path = path.join("/")
+                promises.push(
+                    Bucket.getList(`${profileName}/lora/${path}`)
+                        .then((list) => console.log(list, iconMap))
+                )
+            }
+            return Promise.all(promises)
+        })
+        .then( () => {
+            let tokenList = [...modelsOptions.embeddings]
+            if (loraTokens.length != 0) {
+                tokenList.unshift(['LORA Keywords', loraTokens])
+            }
+            embeddingsList.replaceChildren(html(tokenList, iconMap, "", filter))
             createCollapsibles(embeddingsList)
             if (filter != "") {
                 embeddingsExpandAll()

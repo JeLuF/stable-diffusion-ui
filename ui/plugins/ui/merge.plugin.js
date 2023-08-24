@@ -275,14 +275,14 @@
     let loraUI=`
         <div class="panel-box lora-manager-grid">
             <div class="lora-manager-grid-selector">
-                <p><label for="#loraModel">Select Lora:</label></p>
+                <label for="#loraModel">Select Lora:</label>
                 <input id="loraModel" type="text" spellcheck="false" autocomplete="off" class="model-filter" data-path="" />
             </div>
             <div class="lora-manager-grid-thumbnail">
-                <p>Thumbnail:</p>
-                <div style="position:relative; height:512px; width:512px;background-color:#222;border-radius:1em;margin-bottom:1em;">
-                    <i id="#lora-manager-image-placeholder" class="fa-regular fa-image" style="font-size:500%;color:#555;position:absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);"></i>
-                    <img id="#lora-manager-image" class="displayNone"/>
+                <p style="height:2em;">Thumbnail:</p>
+                <div style="position:relative; height:256px; width:256px;background-color:#222;border-radius:1em;margin-bottom:1em;">
+                    <i id="lora-manager-image-placeholder" class="fa-regular fa-image" style="font-size:500%;color:#555;position:absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);"></i>
+                    <img id="lora-manager-image" class="displayNone" style="border-radius:6px;max-height:256px;max-width:256px;"/>
                 </div>
                 <div style="text-align:center;">
                     <button class="tertiaryButton"><i class="fa-solid fa-upload"></i> Upload new thumbnail</button>
@@ -290,16 +290,21 @@
                 </div>
             </div>
             <div class="lora-manager-grid-keywords">
-                <p>Keywords:</p>
-                <textarea style="width:100%;resize:vertical;" id="#lora-manager-keywords" placeholder="Put LORA specific keywords here..."></textarea>
+                <p style="height:2em;">Keywords:
+                <span style="float:right;margin-bottom:4px;"><button id="lora-keyword-from-civitai" class="tertiaryButton smallButton">Import from Civitai</button></span></p>
+                <textarea style="width:100%;resize:vertical;" id="lora-manager-keywords" placeholder="Put LORA specific keywords here..."></textarea>
                 <p style="color:var(--small-label-color);">
-                    <b>LORA model keywords</b> can be used via the <code>+ Embeddings</code> button. They get added to the embedding 
+                    <b>LORA model keywords</b> can be used via the <code>+&nbsp;Embeddings</code> button. They get added to the embedding 
                     keyword menu when the LORA has been selected in the image settings.
                 </p>
             </div>
             <div class="lora-manager-grid-notes">
-                <p>Notes:</p>
-                <textarea style="width:100%;resize:vertical;"  id="#lora-manager-notes" placeholder="Place for things you want to remember..."></textarea>
+                <p style="height:2em;">Notes:</p>
+                <textarea style="width:100%;resize:vertical;"  id="lora-manager-notes" placeholder="Place for things you want to remember..."></textarea>
+                <p id="civitai-section" class="displayNone">
+                    <b>Civitai model page:</b>
+                    <a id="civitai-model-page" target="_blank"></a>
+                </p>
             </div>
         </div>`
 
@@ -602,8 +607,96 @@
         })
     }
 
-    function initLoraUI() {
-        let loraModelField = new ModelDropdown(document.querySelector("#loraModel"), "lora")
+    const LoraUI = {
+        modelField: undefined,
+        keywordsField: undefined,
+        notesField: undefined,
+        civitaiImportBtn: undefined,
+        civitaiSecion: undefined,
+        civitaiAnchor: undefined,
+        image: undefined,
+        imagePlaceholder: undefined,
+
+        init() {
+            LoraUI.modelField = new ModelDropdown(document.querySelector("#loraModel"), "lora")
+            LoraUI.keywordsField = document.querySelector("#lora-manager-keywords")
+            LoraUI.notesField = document.querySelector("#lora-manager-notes")
+            LoraUI.civitaiImportBtn = document.querySelector("#lora-keyword-from-civitai")
+            LoraUI.civitaiSection = document.querySelector("#civitai-section")
+            LoraUI.civitaiAnchor = document.querySelector("#civitai-model-page")
+            LoraUI.image = document.querySelector("#lora-manager-image")
+            LoraUI.imagePlaceholder = document.querySelector("#lora-manager-image-placeholder")
+
+            LoraUI.modelField.addEventListener("change", LoraUI.updateFields)
+            LoraUI.keywordsField.addEventListener("focusout", LoraUI.saveInfos)
+            LoraUI.notesField.addEventListener("focusout", LoraUI.saveInfos)
+            LoraUI.civitaiImportBtn.addEventListener("click", LoraUI.importFromCivitai)
+
+            LoraUI.updateFields()
+        },
+
+        updateFields() {
+            document.getElementById("civitai-section").classList.add("displayNone")
+            Bucket.retrieve(`modelinfo/lora/${LoraUI.modelField.value}`)
+                .then((info) => {
+                    console.log(info)
+                    if (info == null) {
+                        LoraUI.keywordsField.value = ""
+                        LoraUI.notesField.value = ""
+                    } else {
+                        LoraUI.keywordsField.value = info.keywords.join("\n")
+                        LoraUI.notesField.value = info.notes
+                    }
+                })
+            Bucket.getImageAsDataURL(`${profileNameField.value}/lora/${LoraUI.modelField.value}.png`)
+                .then((data) => {
+                    LoraUI.image.src=data
+                    LoraUI.image.classList.remove("displayNone")
+                    LoraUI.imagePlaceholder.classList.add("displayNone")
+                })
+                .catch((error) => {
+                    console.error("Caught error:", error)
+                    LoraUI.image.classList.add("displayNone")
+                    LoraUI.imagePlaceholder.classList.remove("displayNone")
+                })
+        },
+
+        saveInfos() {
+            let info = {
+                keywords: LoraUI.keywordsField.value
+                            .split("\n")
+                            .filter((x) => (x != "")),
+                notes: LoraUI.notesField.value,
+                civitai: LoraUI.civitaiSection.checkVisibility() ? LoraUI.civitaiAnchor.href : null, 
+            }
+            Bucket.store(`modelinfo/lora/${LoraUI.modelField.value}`, info)
+            console.log(info)
+        },
+
+        importFromCivitai() {
+            document.body.style["cursor"] = "progress"
+            fetch("/sha256/lora/"+LoraUI.modelField.value)
+                .then((result) => result.json())
+                .then((json) => fetch("https://civitai.com/api/v1/model-versions/by-hash/" + json.digest))
+                .then((result) => result.json())
+                .then((json) => {
+                    document.body.style["cursor"] = "default"
+                    if (json == null) {
+                        return
+                    }
+                    if ("trainedWords" in json) {
+                        LoraUI.keywordsField.value = json["trainedWords"].join("\n")
+                    } else {
+                        showToast("No keyword info found.")
+                    }
+                    if ("modelId" in json) {
+                        LoraUI.civitaiSection.classList.remove("displayNone")
+                        LoraUI.civitaiAnchor.href = "https://civitai.com/models/" + json.modelId
+                        LoraUI.civitaiAnchor.innerHTML = LoraUI.civitaiAnchor.href
+                    }
+                    LoraUI.saveInfos()
+                })
+        },
     }
 
     createTab({
@@ -617,7 +710,7 @@
                 return
             }
             initMergeUI()
-            initLoraUI()
+            LoraUI.init()
             const tabMergeUI = document.querySelector("#tab-model-mergeUI")
             const tabLoraUI = document.querySelector("#tab-model-loraUI")
             linkTabContents(tabMergeUI)
@@ -625,3 +718,7 @@
         },
     })
 })()
+async function getLoraKeywords(model) {
+    return Bucket.retrieve(`modelinfo/lora/${model}`)
+        .then((info) => info.keywords)
+}
