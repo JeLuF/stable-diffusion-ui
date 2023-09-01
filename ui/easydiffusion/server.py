@@ -15,8 +15,10 @@ from easydiffusion.types import (
     FilterImageRequest,
     MergeRequest,
     TaskData,
+    RenderTaskData,
     ModelsData,
     OutputFormatData,
+    SaveToDiskData,
     convert_legacy_render_req_to_new,
 )
 from easydiffusion.utils import log
@@ -36,6 +38,7 @@ NOCACHE_HEADERS = {
     "Pragma": "no-cache",
     "Expires": "0",
 }
+PROTECTED_CONFIG_KEYS = ("block_nsfw",)  # can't change these via the HTTP API
 
 
 class NoCacheStaticFiles(StaticFiles):
@@ -63,7 +66,8 @@ class SetAppConfigRequest(BaseModel, extra=Extra.allow):
     ui_open_browser_on_start: bool = None
     listen_to_network: bool = None
     listen_port: int = None
-    test_diffusers: bool = True
+    use_v3_engine: bool = True
+    models_dir: str = None
 
 
 def init():
@@ -172,10 +176,11 @@ def set_app_config_internal(req: SetAppConfigRequest):
             config["net"] = {}
         config["net"]["listen_port"] = int(req.listen_port)
 
-    config["test_diffusers"] = req.test_diffusers
+    config["use_v3_engine"] = req.use_v3_engine
+    config["models_dir"] = req.models_dir
 
     for property, property_value in req.dict().items():
-        if property_value is not None and property not in req.__fields__:
+        if property_value is not None and property not in req.__fields__ and property not in PROTECTED_CONFIG_KEYS:
             config[property] = property_value
 
     try:
@@ -204,7 +209,12 @@ def read_web_data_internal(key: str = None, **kwargs):
     if not key:  # /get without parameters, stable-diffusion easter egg.
         raise HTTPException(status_code=418, detail="StableDiffusion is drawing a teapot!")  # HTTP418 I'm a teapot
     elif key == "app_config":
-        return JSONResponse(app.getConfig(), headers=NOCACHE_HEADERS)
+        config = app.getConfig()
+
+        if "models_dir" not in config:
+            config["models_dir"] = app.MODELS_DIR
+
+        return JSONResponse(config, headers=NOCACHE_HEADERS)
     elif key == "system_info":
         config = app.getConfig()
 
@@ -261,14 +271,15 @@ def render_internal(req: dict):
 
         # separate out the request data into rendering and task-specific data
         render_req: GenerateImageRequest = GenerateImageRequest.parse_obj(req)
-        task_data: TaskData = TaskData.parse_obj(req)
+        task_data: RenderTaskData = RenderTaskData.parse_obj(req)
         models_data: ModelsData = ModelsData.parse_obj(req)
         output_format: OutputFormatData = OutputFormatData.parse_obj(req)
+        save_data: SaveToDiskData = SaveToDiskData.parse_obj(req)
 
         # Overwrite user specified save path
         config = app.getConfig()
         if "force_save_path" in config:
-            task_data.save_to_disk_path = config["force_save_path"]
+            save_data.save_to_disk_path = config["force_save_path"]
 
         render_req.init_image_mask = req.get("mask")  # hack: will rename this in the HTTP API in a future revision
 
@@ -280,7 +291,7 @@ def render_internal(req: dict):
         )
 
         # enqueue the task
-        task = RenderTask(render_req, task_data, models_data, output_format)
+        task = RenderTask(render_req, task_data, models_data, output_format, save_data)
         return enqueue_task(task)
     except HTTPException as e:
         raise e
@@ -291,13 +302,14 @@ def render_internal(req: dict):
 
 def filter_internal(req: dict):
     try:
-        session_id = req.get("session_id", "session")
         filter_req: FilterImageRequest = FilterImageRequest.parse_obj(req)
+        task_data: TaskData = TaskData.parse_obj(req)
         models_data: ModelsData = ModelsData.parse_obj(req)
         output_format: OutputFormatData = OutputFormatData.parse_obj(req)
+        save_data: SaveToDiskData = SaveToDiskData.parse_obj(req)
 
         # enqueue the task
-        task = FilterTask(filter_req, session_id, models_data, output_format)
+        task = FilterTask(filter_req, task_data, models_data, output_format, save_data)
         return enqueue_task(task)
     except HTTPException as e:
         raise e
@@ -456,6 +468,7 @@ def modify_package_internal(package_name: str, req: dict):
         log.error(traceback.format_exc())
         return HTTPException(status_code=500, detail=str(e))
 
+
 def get_sha256_internal(obj_path):
     import hashlib
     from easydiffusion.utils import sha256sum
@@ -477,4 +490,3 @@ def get_sha256_internal(obj_path):
         log.error(str(e))
         log.error(traceback.format_exc())
         return HTTPException(status_code=500, detail=str(e))
-

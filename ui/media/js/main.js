@@ -22,7 +22,8 @@ const taskConfigSetup = {
         },
         tiling: {
             label: "Tiling",
-            visible: ({ reqBody }) => reqBody?.tiling != "none",
+            visible: ({ reqBody }) =>
+                reqBody?.tiling != "none" && reqBody?.tiling !== null && reqBody?.tiling !== undefined,
             value: ({ reqBody }) => reqBody?.tiling,
         },
         use_vae_model: {
@@ -160,6 +161,7 @@ let initImageClearBtn = document.querySelector(".init_image_clear")
 let promptStrengthContainer = document.querySelector("#prompt_strength_container")
 
 let initialText = document.querySelector("#initial-text")
+let supportBanner = document.querySelector("#supportBanner")
 let versionText = document.querySelector("#version")
 let previewTools = document.querySelector("#preview-tools")
 let clearAllPreviewsBtn = document.querySelector("#clear-all-previews")
@@ -509,7 +511,11 @@ function showImages(reqBody, res, outputContainer, livePreview) {
                     { text: "Upscale", on_click: onUpscaleClick },
                     { text: "Fix Faces", on_click: onFixFacesClick },
                 ],
-                { text: "Use as Thumbnail", on_click: onUseAsThumbnailClick, filter: (req, img) => "use_embeddings_model" in req || "use_lora_model" in req},
+                { 
+                    text: "Use as Thumbnail",
+                    on_click: onUseAsThumbnailClick,
+                    filter: (req, img) => "use_embeddings_model" in req || "use_lora_model" in req
+                },
             ]
 
             // include the plugins
@@ -673,6 +679,28 @@ function getAllModelNames(type) {
     return f(modelsOptions[type])
 }
 
+// gets a flattened list of all models of a certain type. e.g. "path/subpath/modelname"
+// use the filter to search for all models having a certain name.
+function getAllModelPathes(type, filter = "") {
+    function f(tree, prefix) {
+        if (tree == undefined) {
+            return []
+        }
+        let result = []
+        tree.forEach((e) => {
+            if (typeof e == "object") {
+                result = result.concat(f(e[1], prefix + e[0] + "/"))
+            } else {
+                if (filter == "" || e == filter) {
+                    result.push(prefix + e)
+                }
+            }
+        })
+        return result
+    }
+    return f(modelsOptions[type], "")
+}
+
 function onUseAsThumbnailClick(req, img) {
     let scale = 1
     let targetWidth = img.naturalWidth
@@ -720,7 +748,7 @@ function onUseAsThumbnailClick(req, img) {
         onUseAsThumbnailClick.croppr.setImage(img.src)
     }
 
-    let embeddings = req.use_embeddings_model.map(e => e.split("/").pop())
+    let embeddings = req.use_embeddings_model.map((e) => e.split("/").pop())
     let LORA = []
 
     if ("use_lora_model" in req) {
@@ -878,6 +906,10 @@ function applyInlineFilter(filterName, path, filterParams, img, statusText, tool
     }
     filterReq.model_paths[filterName] = path
 
+    if (saveToDiskField.checked && diskPathField.value.trim() !== "") {
+        filterReq.save_to_disk_path = diskPathField.value.trim()
+    }
+
     tools.spinnerStatus.innerText = statusText
     tools.spinner.classList.remove("displayNone")
 
@@ -1006,6 +1038,13 @@ function makeImage() {
     newTaskRequests.forEach(createTask)
 
     updateInitialText()
+
+    const countBeforeBanner = localStorage.getItem("countBeforeBanner") || 1
+    if (countBeforeBanner <= 0) {
+        // supportBanner.classList.remove("displayNone")
+    } else {
+        localStorage.setItem("countBeforeBanner", countBeforeBanner - 1)
+    }
 }
 
 /* Hover effect for the init image in the task list */
@@ -1118,7 +1157,7 @@ function createTask(task) {
     taskEntry.innerHTML = ` <div class="header-content panel collapsible active">
                                 <i class="drag-handle fa-solid fa-grip"></i>
                                 <div class="taskStatusLabel">Enqueued</div>
-                                <button class="secondaryButton stopTask"><i class="fa-solid fa-trash-can"></i> Remove</button>
+                                <button class="secondaryButton stopTask"><i class="fa-solid fa-xmark"></i> Cancel</button>
                                 <button class="tertiaryButton useSettings"><i class="fa-solid fa-redo"></i> Use these settings</button>
                                 <div class="preview-prompt"></div>
                                 <div class="taskConfig">${taskConfig}</div>
@@ -1134,7 +1173,6 @@ function createTask(task) {
     }
 
     if (task.reqBody.control_image !== undefined && task.reqBody.control_filter_to_apply !== undefined) {
-        let controlImagePreview = taskEntry.querySelector(".controlnet-img-preview > img")
         let req = {
             image: task.reqBody.control_image,
             filter: task.reqBody.control_filter_to_apply,
@@ -1142,15 +1180,8 @@ function createTask(task) {
             filter_params: {},
         }
         req["model_paths"][task.reqBody.control_filter_to_apply] = task.reqBody.control_filter_to_apply
-        SD.filter(req).then(
-            (result) => {
-                console.log(result)
-                controlImagePreview.src = result.output[0]
-                let controlImageLargePreview = taskEntry.querySelector(".controlnet-img-preview .task-fs-initimage img")
-                controlImageLargePreview.src = controlImagePreview.src
-            },
-            (error) => console.log("filter error", error)
-        )
+
+        task["previewTaskReq"] = req
     }
 
     createCollapsibles(taskEntry)
@@ -1183,6 +1214,7 @@ function createTask(task) {
         startY = e.target.closest(".imageTaskContainer").offsetTop
     })
 
+    task["taskConfig"] = taskEntry.querySelector(".taskConfig")
     task["taskStatusLabel"] = taskEntry.querySelector(".taskStatusLabel")
     task["outputContainer"] = taskEntry.querySelector(".img-preview")
     task["outputMsg"] = taskEntry.querySelector(".outputMsg")
@@ -1212,7 +1244,7 @@ function createTask(task) {
     })
 
     task.isProcessing = true
-    taskEntry = imagePreviewContent.insertBefore(taskEntry, previewTools.nextSibling)
+    taskEntry = imagePreviewContent.insertBefore(taskEntry, supportBanner.nextSibling)
     htmlTaskMap.set(taskEntry, task)
 
     task.previewPrompt.innerText = task.reqBody.prompt
@@ -1263,7 +1295,6 @@ function getCurrentUserRequest() {
             //render_device: undefined, // Set device affinity. Prefer this device, but wont activate.
             use_stable_diffusion_model: stableDiffusionModelField.value,
             clip_skip: clipSkipField.checked,
-            tiling: tilingField.value,
             use_vae_model: vaeModelField.value,
             stream_progress_updates: true,
             stream_image_progress: numOutputsTotal > 50 ? false : streamImageProgressField.checked,
@@ -1328,6 +1359,10 @@ function getCurrentUserRequest() {
             newTask.reqBody.use_lora_model = modelNames
             newTask.reqBody.lora_alpha = modelStrengths
         }
+
+        if (tilingField.value !== "none") {
+            newTask.reqBody.tiling = tilingField.value
+        }
     }
     if (testDiffusers.checked && document.getElementById("toggle-tensorrt-install").innerHTML == "Uninstall") {
         // TRT is installed
@@ -1361,9 +1396,11 @@ function getCurrentUserRequest() {
 }
 
 function setEmbeddings(task) {
-    let prompt = task.reqBody.prompt.toLowerCase()
-    let negativePrompt = task.reqBody.negative_prompt.toLowerCase()
-    let overallPrompt = (prompt + " " + negativePrompt).replaceAll(",", "").split(" ")
+    let prompt = task.reqBody.prompt
+    let negativePrompt = task.reqBody.negative_prompt
+    let overallPrompt = (prompt + " " + negativePrompt).toLowerCase()
+    overallPrompt = overallPrompt.replaceAll(/[^a-z0-9\-_\.]/g, " ") // only allow alpha-numeric, dots and hyphens
+    overallPrompt = overallPrompt.split(" ")
 
     let embeddingsTree = modelsOptions["embeddings"]
     let embeddings = []
@@ -1578,10 +1615,16 @@ function updateInitialText() {
         }
         previewTools.classList.add("displayNone")
         initialText.classList.remove("displayNone")
+        supportBanner.classList.add("displayNone")
     } else {
         initialText.classList.add("displayNone")
         previewTools.classList.remove("displayNone")
         document.querySelector("div.display-settings").prepend(undoButton)
+
+        const countBeforeBanner = localStorage.getItem("countBeforeBanner") || 1
+        if (countBeforeBanner <= 0) {
+            supportBanner.classList.remove("displayNone")
+        }
     }
 }
 
@@ -2343,7 +2386,7 @@ document.getElementById("toggle-tensorrt-install").addEventListener("click", fun
 
 /* Embeddings */
 
-addEmbeddingsThumb.addEventListener("click", e => addEmbeddingsThumbInput.click())
+addEmbeddingsThumb.addEventListener("click", (e) => addEmbeddingsThumbInput.click())
 addEmbeddingsThumbInput.addEventListener("change", loadThumbnailImageFromFile)
 
 function loadThumbnailImageFromFile() {
@@ -2359,7 +2402,9 @@ function loadThumbnailImageFromFile() {
         img.src = reader.result
         onUseAsThumbnailClick(
             {
-                use_embeddings_model: getAllModelNames("embeddings").sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+                use_embeddings_model: getAllModelNames("embeddings").sort((a, b) =>
+                    a.localeCompare(b, undefined, { sensitivity: "base" })
+                ),
             },
             img
         )
@@ -2369,7 +2414,6 @@ function loadThumbnailImageFromFile() {
         reader.readAsDataURL(file)
     }
 }
-
 
 function updateEmbeddingsList(filter = "") {
     function html(model, iconMap = {}, prefix = "", filter = "") {
@@ -2601,6 +2645,17 @@ window.addEventListener("beforeunload", function(e) {
     }
 })
 
+document.addEventListener("collapsibleClick", function(e) {
+    let header = e.detail
+    if (header === document.querySelector("#negative_prompt_handle")) {
+        if (header.classList.contains("active")) {
+            negativeEmbeddingsButton.classList.remove("displayNone")
+        } else {
+            negativeEmbeddingsButton.classList.add("displayNone")
+        }
+    }
+})
+
 createCollapsibles()
 prettifyInputs(document)
 
@@ -2787,29 +2842,33 @@ let recentResolutionsValues = []
     })
 })()
 
-TASK_CALLBACKS["before_task_start"].push(function(task) {
+document.addEventListener("before_task_start", (e) => {
+    let task = e.detail.task
+
     // Update the seed *before* starting the processing so it's retained if user stops the task
     if (randomSeedField.checked) {
         seedField.value = task.seed
     }
 })
 
-TASK_CALLBACKS["after_task_start"].push(function(task) {
-    // setStatus("request", "fetching..") // no-op implementation
+document.addEventListener("after_task_start", (e) => {
     renderButtons.style.display = "flex"
     renameMakeImageButton()
     updateInitialText()
 })
 
-TASK_CALLBACKS["on_task_step"].push(function(task, reqBody, stepUpdate, outputContainer) {
-    showImages(reqBody, stepUpdate, outputContainer, true)
+document.addEventListener("on_task_step", (e) => {
+    showImages(e.detail.reqBody, e.detail.stepUpdate, e.detail.outputContainer, true)
 })
 
-TASK_CALLBACKS["on_render_task_success"].push(function(task, reqBody, stepUpdate, outputContainer) {
-    showImages(reqBody, stepUpdate, outputContainer, false)
+document.addEventListener("on_render_task_success", (e) => {
+    showImages(e.detail.reqBody, e.detail.stepUpdate, e.detail.outputContainer, false)
 })
 
-TASK_CALLBACKS["on_render_task_fail"].push(function(task, reqBody, stepUpdate, outputContainer) {
+document.addEventListener("on_render_task_fail", (e) => {
+    let task = e.detail.task
+    let stepUpdate = e.detail.stepUpdate
+
     const outputMsg = task["outputMsg"]
     let msg = ""
     if ("detail" in stepUpdate && typeof stepUpdate.detail === "string" && stepUpdate.detail.length > 0) {
@@ -2858,7 +2917,7 @@ TASK_CALLBACKS["on_render_task_fail"].push(function(task, reqBody, stepUpdate, o
     logError(msg, stepUpdate, outputMsg)
 })
 
-TASK_CALLBACKS["on_all_tasks_complete"].push(function() {
+document.addEventListener("on_all_tasks_complete", (e) => {
     renderButtons.style.display = "none"
     renameMakeImageButton()
 
