@@ -478,7 +478,6 @@
         linkTabContents(tabSettingsSingle)
         linkTabContents(tabSettingsBatch)
 
-        console.log("Activate")
         let mergeModelAField = new ModelDropdown(document.querySelector("#mergeModelA"), "stable-diffusion")
         let mergeModelBField = new ModelDropdown(document.querySelector("#mergeModelB"), "stable-diffusion")
         updateChart()
@@ -639,13 +638,16 @@
             document.getElementById("civitai-section").classList.add("displayNone")
             Bucket.retrieve(`modelinfo/lora/${LoraUI.modelField.value}`)
                 .then((info) => {
-                    console.log(info)
                     if (info == null) {
                         LoraUI.keywordsField.value = ""
                         LoraUI.notesField.value = ""
+                        LoraUI.hideCivitaiLink()
                     } else {
                         LoraUI.keywordsField.value = info.keywords.join("\n")
                         LoraUI.notesField.value = info.notes
+                        if ("civitai" in info) {
+                            LoraUI.showCivitaiLink(info.civitai)
+                        }
                     }
                 })
             Bucket.getImageAsDataURL(`${profileNameField.value}/lora/${LoraUI.modelField.value}.png`)
@@ -670,7 +672,6 @@
                 civitai: LoraUI.civitaiSection.checkVisibility() ? LoraUI.civitaiAnchor.href : null, 
             }
             Bucket.store(`modelinfo/lora/${LoraUI.modelField.value}`, info)
-            console.log(info)
         },
 
         importFromCivitai() {
@@ -690,13 +691,24 @@
                         showToast("No keyword info found.")
                     }
                     if ("modelId" in json) {
-                        LoraUI.civitaiSection.classList.remove("displayNone")
-                        LoraUI.civitaiAnchor.href = "https://civitai.com/models/" + json.modelId
-                        LoraUI.civitaiAnchor.innerHTML = LoraUI.civitaiAnchor.href
+                        LoraUI.showCivitaiLink("https://civitai.com/models/" + json.modelId)
+                    } else {
+                        LoraUI.hideCivitaiLink()
                     }
+
                     LoraUI.saveInfos()
                 })
         },
+
+        showCivitaiLink(href) {
+            LoraUI.civitaiSection.classList.remove("displayNone")
+            LoraUI.civitaiAnchor.href = href
+            LoraUI.civitaiAnchor.innerHTML = LoraUI.civitaiAnchor.href
+        },
+
+        hideCivitaiLink() {
+            LoraUI.civitaiSection.classList.add("displayNone")
+        }
     }
 
     createTab({

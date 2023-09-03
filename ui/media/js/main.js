@@ -748,44 +748,45 @@ function onUseAsThumbnailClick(req, img) {
         onUseAsThumbnailClick.croppr.setImage(img.src)
     }
 
-    let embeddings = []
+    useAsThumbSelect.innerHTML=""
+
     if ("use_embeddings_model" in req) {
-        embeddings = req.use_embeddings_model.map((e) => e.split("/").pop())
+        let embeddings = req.use_embeddings_model.map((e) => e.split("/").pop())
+
+        let embOptions = document.createElement("optgroup")
+        embOptions.label = "Embeddings"
+        embOptions.replaceChildren(
+            ...embeddings.map((e) => {
+                let option = document.createElement("option")
+                option.innerText = e
+                option.dataset["type"] = "embeddings"
+                return option
+            })
+        )
+        useAsThumbSelect.appendChild(embOptions)
     }
-    let LORA = []
+
 
     if ("use_lora_model" in req) {
-        LORA = req.use_lora_model
+        let LORA = req.use_lora_model
         if (typeof LORA == "string") {
             LORA = [LORA]
         }
         LORA = LORA.map((e) => e.split("/").pop())
+
+        let loraOptions = document.createElement("optgroup")
+        loraOptions.label = "LORA"
+        loraOptions.replaceChildren(
+            ...LORA.map((e) => {
+                let option = document.createElement("option")
+                option.innerText = e
+                option.dataset["type"] = "lora"
+                return option
+            })
+        )
+        useAsThumbSelect.appendChild(loraOptions)
     }
 
-    console.log(req)
-    let embOptions = document.createElement("optgroup")
-    embOptions.label = "Embeddings"
-    embOptions.replaceChildren(
-        ...embeddings.map((e) => {
-            let option = document.createElement("option")
-            option.innerText = e
-            option.dataset["type"] = "embeddings"
-            return option
-        })
-    )
-
-    let loraOptions = document.createElement("optgroup")
-    loraOptions.label = "LORA"
-    loraOptions.replaceChildren(
-        ...LORA.map((e) => {
-            let option = document.createElement("option")
-            option.innerText = e
-            option.dataset["type"] = "lora"
-            return option
-        })
-    )
-
-    useAsThumbSelect.replaceChildren(embOptions, loraOptions)
     useAsThumbDialog.showModal()
     onUseAsThumbnailClick.scale = scale
 }
@@ -2425,18 +2426,12 @@ function updateEmbeddingsList(filter = "") {
         let toplevel = document.createElement("div")
         let folders = document.createElement("div")
 
-        // console.log(iconMap)
-
         let profileName = profileNameField.value
         model?.forEach((m) => {
             if (typeof m == "string") {
                 let token = m.toLowerCase()
                 if (token.search(filter) != -1) {
                     let button
-                    // if (iconlist.length==0) {
-                    //     button = document.createElement("button")
-                    //     button.innerText = m
-                    // } else {
                     let img = "/media/images/noimg.png"
                     if (token in iconMap) {
                         img = `/bucket/${profileName}/${iconMap[token]}`
@@ -2512,7 +2507,7 @@ function updateEmbeddingsList(filter = "") {
     let iconMap = {}
 
     Bucket.getList(`${profileName}/embeddings/`)
-        .then(async function(icons) {
+        .then((icons) => {
             iconMap = Object.assign(
                 {},
                 ...icons.map((x) => ({
@@ -2524,31 +2519,26 @@ function updateEmbeddingsList(filter = "") {
                 }))
             )
 
-            let promises = []
-            for (let lora of loraModelField.value.modelNames) {
-                promises.push(
-                    getLoraKeywords(lora)
-                        .then((tokens) => {loraTokens = loraTokens.concat(tokens)})
-                )
-                // get path of lora
-                let path = ("/"+lora).split("/")
-                // Remove model from path
-                path.pop()
-                path = path.join("/")
-                promises.push(
-                    Bucket.getList(`${profileName}/lora/${path}`)
-                        .then((list) => console.log(list, iconMap))
-                )
-            }
-            return Promise.all(promises)
+            return Bucket.getList(`${profileName}/lora/`)
         })
-        .then( (x) => {
-            console.log(x)
+        .then(async function (icons) {
+            for (let lora of loraModelField.value.modelNames) {
+                let keywords = await getLoraKeywords(lora)
+                loraTokens = loraTokens.concat(keywords)
+                let loraname = lora.split("/").pop()
+
+                if (icons.includes(`${loraname}.png`)) {
+                    keywords.forEach((kw) => {
+                        iconMap[kw.toLowerCase()] = `lora/${loraname}.png`
+                        
+                    })
+                }
+            }
+
             let tokenList = [...modelsOptions.embeddings]
             if (loraTokens.length != 0) {
                 tokenList.unshift(['LORA Keywords', loraTokens])
             }
-            console.log("iconMap", iconMap)
             embeddingsList.replaceChildren(html(tokenList, iconMap, "", filter))
             createCollapsibles(embeddingsList)
             if (filter != "") {
