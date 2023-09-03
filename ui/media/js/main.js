@@ -748,7 +748,10 @@ function onUseAsThumbnailClick(req, img) {
         onUseAsThumbnailClick.croppr.setImage(img.src)
     }
 
-    let embeddings = req.use_embeddings_model.map((e) => e.split("/").pop())
+    let embeddings = []
+    if ("use_embeddings_model" in req) {
+        embeddings = req.use_embeddings_model.map((e) => e.split("/").pop())
+    }
     let LORA = []
 
     if ("use_lora_model" in req) {
@@ -756,6 +759,7 @@ function onUseAsThumbnailClick(req, img) {
         if (typeof LORA == "string") {
             LORA = [LORA]
         }
+        LORA = LORA.map((e) => e.split("/").pop())
     }
 
     console.log(req)
@@ -2538,11 +2542,13 @@ function updateEmbeddingsList(filter = "") {
             }
             return Promise.all(promises)
         })
-        .then( () => {
+        .then( (x) => {
+            console.log(x)
             let tokenList = [...modelsOptions.embeddings]
             if (loraTokens.length != 0) {
                 tokenList.unshift(['LORA Keywords', loraTokens])
             }
+            console.log("iconMap", iconMap)
             embeddingsList.replaceChildren(html(tokenList, iconMap, "", filter))
             createCollapsibles(embeddingsList)
             if (filter != "") {
